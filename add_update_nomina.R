@@ -1,4 +1,3 @@
-
 tabla_empleados_nomina <- function (ianio,iquincena,itipo,iarchivo,con) 
 {
 
@@ -113,7 +112,7 @@ tipo_nomina = itipo
 if (tipo_nomina == "Finiquitos") {
    result = anti_join(data_filtered,compare_emp,by='id_empleado')  
 
-   escribir_log (paste ( "Numero de registros para result y data_filtered ", nrow(result), nrow(data_filtered) , sep = " "))
+   escribir_log (file_conn,paste ( "Numero de registros para result y data_filtered ", nrow(result), nrow(data_filtered) , sep = " "))
 
 
    if ( nrow(result) == 0) 
@@ -124,16 +123,17 @@ if (tipo_nomina == "Finiquitos") {
 
       escribir_log (file_conn, paste("Registros finiquito ", data_finiquito , sep = " "))
  
+      #Aqui se desacivan y no en el primer proces
       for (ii in 1:nrow(data_finiquito)) {               
-   	   str_update <- sprintf("UPDATE empleados_nomina SET activo = FALSE where id_empleado = %s", data_finiquito[ii, 1])
+   	     str_update <- sprintf("UPDATE empleados SET activo = FALSE where id_empleado = %s", data_finiquito[ii, 1])
 
          escribir_log (file_conn, paste("update query para sql ", str_update , sep = " "))
-         #dbExecute(con, str_update)
-	}
+         dbExecute(con, str_update)
+	    }
 
    } else 
    {
-      escribir_log (file_conn, paste("El resultado de nrow es diferente de cero, no podemos proceder con finiquitos ", sep = " "))
+      stop ("El resultado de nrow es diferente de cero, hay empleados que no existen, no podemos proceder con finiquitos ")
    }
 } else 
 {
@@ -142,8 +142,11 @@ if (tipo_nomina == "Finiquitos") {
    escribir_log (file_conn, paste("Se procesa anti  join para buscar empleados_nomina del excel fuera del BD " , nrow(result), sep = " "))
   
    check_inactivo = df_inactivo$id_empleado %in% result$id_empleado
- 
-   if (nrow(df_inactivo) > 0 ) {
+   check_inactivo = as.data.frame(check_inactivo)
+   
+   if (nrow(check_inactivo) > 0 ) {
+     escribir_log (file_conn, check_inactivo) 
+     escribir_log (file_conn,result$id_empleado)
       stop ("No pueden adicionarse empleados que estan inactivos nuevamente") 
    }
 
@@ -151,8 +154,7 @@ if (tipo_nomina == "Finiquitos") {
       #empleados que no estan en la BD
 
       if (tipo_nomina == "Extraordinarios") {
-
-         escribir_log (file_conn, paste("No puede procesar extraordinarias para empleados_nominas que no existen en la BD, Son ", nrow(result), " empleados inexistentes.", sep = " "))
+         stop (paste("No puede procesar extraordinarias para empleados_nominas que no existen en la BD, Son ", nrow(result), " empleados inexistentes."))
   
       } else 
       {
@@ -251,14 +253,14 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
       }
    } else 
    {
-      stop(paste("No se puede procesar por ser de diferentes tamaños " , sep = " "))
+      stop (paste("No se puede procesar por ser de diferentes tamaños " , sep = " "))
    }
 }  # if tipo_nomina Compuesta o extraordinaria
 
    escribir_log (file_conn,paste("Cerrando BD", sep = " "))
    #dbDisconnect(con)  
    cerrar_log(file_conn)
-   return (0)
+   return ('0')
 
 }, error = function(e) {
               # Formatear el mensaje de error con la fecha y hora
@@ -267,7 +269,7 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
    		  escribir_log (file_conn,mensaje_error)
 
    		  cerrar_log(file_conn)
-           return(-1)
+           return(mensaje_error)
             }
 )
 

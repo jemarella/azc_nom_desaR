@@ -147,7 +147,7 @@ crear_nomina_idx <- function(ianio,iquincena,inombre,con_bd)
             sql_insert <- sprintf ("insert into nomina_idx (anio,quincena,nombre_nomina) values (%s,'%s','%s')",ianio,iquincena,inombre)
             escribir_log(file_conn,paste("Query para insert ",sql_insert))
    
-		      dbExecute(con_bd, sql_insert) 
+		dbExecute(con_bd, sql_insert) 
 
             ctrl_idx = busca_nomina_idx (con_bd,ianio,iquincena,inombre) #buscar el registro recien creado 
             escribir_log(file_conn,paste("Valor ctrl_idx, crear nomina ",ctrl_idx))

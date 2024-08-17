@@ -54,22 +54,20 @@ result_carga = '-1'
 
 if (ctrl_idx != -1 ) {
    if (tipo == "Honorarios") {
-      result = carga_honorarios	(con_bd,anio,quincena,tipo,archivo2)
+      result_carga = carga_honorarios	(anio,quincena,tipo,archivo2,con_bd,ctrl_idx)
    } else {
-      result = tabla_empleados (con_bd,anio,quincena,tipo,archivo1,con_bd)
-      if (result == '0') {
-         result = tabla_empleados_nomina(anio,quincena,tipo,archivo1,con_bd) 
+      result_carga = tabla_empleados (anio,quincena,tipo,archivo1,con_bd)
+      if (result_carga == '0' ) {
+         result_carga = tabla_empleados_nomina(anio,quincena,tipo,archivo1,con_bd) 
       }
-      if (result == '0') {
-         result = carga_resumen_nom (anio,quincena,tipo,archivo1,archivo2,con_bd,ctrl_idx)
+      if (result_carga == '0') {
+         result_carga = carga_resumen_nom (anio,quincena,tipo,archivo1,archivo2,con_bd,ctrl_idx)
       }
-      if (result != '0') {
-         result = carga_detalles_nom (anio,quincena,tipo,archivo2,con_bd,ctrl_idx)
+      if (result_carga == '0') {
+         result_carga = carga_detalles_nom (anio,quincena,tipo,archivo2,con_bd,ctrl_idx)
       } 
    }
-   if (result == '0') {
+   if (result_carga == '0') {
       update_nomina_idx_ok (con_bd,ctrl_idx)    
    }
-
 } 
-

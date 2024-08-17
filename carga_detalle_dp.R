@@ -1,5 +1,4 @@
 
-
 carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
 {
    file_conn = abrir_log()
@@ -95,7 +94,6 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
       # Obtener los id_concepto válidos de la tabla CAT_CONCEPTOS
       valid_concepts_query <- 'SELECT id_concepto FROM public.cat_conceptos;'
       valid_concepts <- dbGetQuery(con, valid_concepts_query)$id_concepto
-
       # Unir los datos del archivo Excel con los de la tabla EMPLEADOS_TOTALES
       merged_data <- data %>%
          left_join(key_quincena_data, by = "id_empleado")
@@ -116,6 +114,7 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
       if (nrow(invalid_concepts) > 0) {
          escribir_log(file_conn,"Alerta: Los siguientes id_concepto no están registrados en la base de datos:")
          escribir_log(file_conn,invalid_concepts)
+         stop ("Error en conceptos percepciones")
       # Aquí puedes agregar código para mostrar una alerta al usuario en el front-end.
       } else {
          # Filtrar y seleccionar las columnas necesarias para percepciones_empleado
@@ -130,7 +129,7 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
             fec_fin_p, 
             fec_imputacion
             )
-  
+            
          # Verificar los datos finales que se van a insertar en percepciones_empleado
          escribir_log(file_conn,"Datos finales a insertar en percepciones_empleado:")
          escribir_log(file_conn,head(percepciones_empleado))
@@ -138,6 +137,7 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
   
          # Insertar los datos en la tabla PERCEPCIONES_EMPLEADO permitiendo duplicados
          dbWriteTable(con, "percepciones_empleado", percepciones_empleado, append = TRUE, row.names = FALSE)
+
       }
 
       # Filtrar y seleccionar las columnas necesarias para deducciones_empleado
@@ -164,6 +164,7 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
       if (nrow(invalid_concepts) > 0) {
          escribir_log(file_conn,"Alerta: Los siguientes id_concepto1 no están registrados en la base de datos:")
          escribir_log(file_conn,invalid_concepts)
+         stop ("Error en conceptos deducciones")
       # Aquí puedes agregar código para mostrar una alerta al usuario en el front-end.
       } else {
          # Verificar los datos finales que se van a insertar en deducciones_empleado
@@ -178,13 +179,13 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
       # Cerrar la conexión a la base de datos
       #dbDisconnect(con)
 	  cerrar_log (file_conn) 
-     return(0)
+     return('0')
 
   }, error = function(e) {
     mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	escribir_log (file_conn,mensaje_error)	
     cerrar_log (file_conn)
-    return (-1)
+    return (mensaje_error)
   })
   
 }

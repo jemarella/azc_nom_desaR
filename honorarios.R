@@ -1,26 +1,29 @@
 
-testit <- function(x)  #Funcion sleep 
+testit <- function(x)
 {
     p1 <- proc.time()
     Sys.sleep(x)
     proc.time() - p1 # The cpu usage should be negligible
 }
 
-carga_honorarios <- function (ianio,iquincena,itipo,iarchivo)
+
+
+
+carga_honorarios <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
 {
-
-   file_conn = abrir_log()
-   escribir_log(file_conn,"Inicio Carga Honorarios....")
-
-  #testit(5)  removemos sleep
+   
   
    tryCatch({
    
+     file_conn = abrir_log()
+     escribir_log(file_conn,"Inicio Carga Honorarios....")
+     
       checkini <- list()
       iniFile <- "./cfg_creacheq.ini"
       checkini <- read.ini(iniFile)
     
       # Conectar a la base de datos
+      if (!dbIsValid(con)) {
       if (length(checkini) > 0) {
          escribir_log (file_conn, "Dentro de Ini, para leer parametros DB") 
 		 
@@ -38,26 +41,28 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo)
                       user = "postgres",
                       password = "Pjmx3840")
       }
+      }
 
 
 	# Obtener KEY_ctr de la tabla nomina_ctrl 
-      key_quincena_query <- sprintf (checkini$Queries$ctrl_nom_pendiente,ianio,iquincena,itipo)
-			    escribir_log(file_conn,paste('Query para control : ', key_quincena_query))
+    #  key_quincena_query <- 
+		#sprintf ("SELECT * from nomina_ctrl where anio = %s and quincena = '%s' and nombre_nomina = '%s' and cancelado = FALSE and pendiente_dem = TRUE",ianio,iquincena,itipo)
+		#	    escribir_log(file_conn,paste('Query para control : ', key_quincena_query))
 
-	   read_sql <- dbGetQuery(con, key_quincena_query)
-	   #read_sql = as.data.frame (key_quincena_data)
-	   #ictrl_idx <- dbGetQuery(con, key_quincena_query)
+	  #read_sql <- dbGetQuery(con, key_quincena_query)
+	  #read_sql = as.data.frame (key_quincena_data)
+	  #ictrl_idx <- dbGetQuery(con, key_quincena_query)
 	  
-	   escribir_log(file_conn,paste('nrow data : ', nrow(read_sql)))
+	  #escribir_log(file_conn,paste('nrow data : ', nrow(read_sql)))
 
-	   ictrl_idx = 0
-	   if (nrow (read_sql) > 0) {
-	     ictrl_idx = read_sql$idx[1]
- 	   } else {
-	     stop (paste ("No hay registro en nomina control " , ianio, iquincena,itipo , sep = " "))
-	   }
-	   escribir_log (file_conn,paste ("numero control nomina: ", ictrl_idx))
-	  
+	  ictrl_idx = v_ctrl_idx
+	  #if (nrow (read_sql) > 0) {
+	  #    ictrl_idx = read_sql$idx[1]
+ 	  #} else {
+	 #    stop (paste ("No hay registro en nomina control " , ianio, iquincena,itipo , sep = " "))
+	  #}
+	  escribir_log (file_conn,paste ("Registro de control en honorarios: " ,ictrl_idx))
+
       # Ruta del archivo
       #desarrollo Fidel  file_path <- "C:/Users/jemar/OneDrive/Escritorio/raiz/52-azcapotzalco_honor.xlsx"
 
@@ -136,6 +141,7 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo)
       escribir_log(file_conn,paste("declarando tabla para insertar:"))
 
    	  t_hono <- data.frame(ctrl_idx = numeric(),
+   	      identificador = character (),                 
 					unidad_administrativa = character(),
                               subprograma = character(),
                               nombre_empleado = character(),
@@ -153,7 +159,7 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo)
 							  liquido = numeric()		
 					)
 
- 
+
       data <- data[ !is.na(data$id), ]
       data_2 <- data_2[ !is.na(data_2$id), ]
 
@@ -169,6 +175,7 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo)
       for (ii in 1:nrow(df_merge)) 
 	  {  #recorremos todos los empleados
    	   t_hono <- rbind (t_hono, data.frame ( ctrl_idx = ictrl_idx,
+   	                  identificador = df_merge$id[ii],
  		  			          unidad_administrativa = df_merge$ua[ii],
                               subprograma = df_merge$subprograma[ii],
                               nombre_empleado = df_merge$nom_emp[ii],
@@ -193,13 +200,15 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo)
 
 
       # Cerrar la conexión a la base de datos
-      dbDisconnect(con)
+      #dbDisconnect(con)
 	  cerrar_log (file_conn)
+	  return ('0')
 
   }, error = function(e) {
       mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	escribir_log (file_conn,mensaje_error)	
       cerrar_log (file_conn)
+      return (mensaje_error)
   })
   
 }

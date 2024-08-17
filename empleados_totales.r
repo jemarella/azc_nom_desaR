@@ -139,14 +139,14 @@ carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2,con,v_c
       #dbDisconnect(con)
 	   cerrar_log (file_conn) 
 
-      return (0)
+      return ('0')
   }, error = function(e) {
     mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	escribir_log (file_conn,mensaje_error)	
     cerrar_log (file_conn)
     #dbDisconnect(con)
 
-    return (-1)
+    return (mensaje_error)
   })
   
 }
