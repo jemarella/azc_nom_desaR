@@ -37,17 +37,39 @@ source("./empleados_totales.R")
 source("./carga_detalle_dp.R")
 source("./honorarios.R")
 
-
 #source("./codigo/asigna_cheques.R") 
 #crea_cheques (2024,'05','Compuesta',10000)
 
-if (tipo == "Honorarios") {
-   result = carga_honorarios	(anio,quincena,tipo,archivo2)
-} else {
-   result = tabla_empleados (anio,quincena,tipo,archivo1)
-   result = tabla_empleados_nomina(anio,quincena,tipo,archivo1) 
-   result = carga_resumen_nom (anio,quincena,tipo,archivo1,archivo2)
-   result = carga_detalles_nom (anio,quincena,tipo,archivo2)
+#conn_bd = abrir_BD
+#if conn_bd != NA {
+
+con_bd = abrir_BD()
+ctrl_idx = -1
+
+if (dbIsValid (con_bd)){
+   ctrl_idx = crear_nomina_idx (anio,quincena,tipo,con_bd)
 }
 
+result_carga = '-1'
+
+if (ctrl_idx != -1 ) {
+   if (tipo == "Honorarios") {
+      result = carga_honorarios	(con_bd,anio,quincena,tipo,archivo2)
+   } else {
+      result = tabla_empleados (con_bd,anio,quincena,tipo,archivo1,con_bd)
+      if (result == '0') {
+         result = tabla_empleados_nomina(anio,quincena,tipo,archivo1,con_bd) 
+      }
+      if (result == '0') {
+         result = carga_resumen_nom (anio,quincena,tipo,archivo1,archivo2,con_bd,ctrl_idx)
+      }
+      if (result != '0') {
+         result = carga_detalles_nom (anio,quincena,tipo,archivo2,con_bd,ctrl_idx)
+      } 
+   }
+   if (result == '0') {
+      update_nomina_idx_ok (con_bd,ctrl_idx)    
+   }
+
+} 
 

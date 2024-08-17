@@ -1,6 +1,6 @@
 
 
-carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2)
+carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
 {
    file_conn = abrir_log()
    escribir_log(file_conn,"Inicio Carga Percepciones y Deducciones....")
@@ -11,7 +11,9 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2)
       checkini <- list()
       iniFile <- "./cfg_creacheq.ini"
       checkini <- read.ini(iniFile)
-    
+
+      if(!dbIsValid(con)) {
+
       # Conectar a la base de datos
       if (length(checkini) > 0) {
          con <- dbConnect(RPostgres::Postgres(),
@@ -28,7 +30,8 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2)
                       user = "postgres",
                       password = "Pjmx3840")
       }
-   
+      }
+
       ## ambiente desarrollo fidel root_dir <- "C:/Users/PJMX/Desktop/Raiz/"
       ## ambiente desarrollo fidel file_path <- paste0(root_dir, "Compuesta/202405_52-azcapotzalco.xlsx")
       # Imprimir la ruta del archivo para verificar
@@ -60,17 +63,22 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2)
       data$fec_imputacion <- as.character(as.Date(data$fec_imputacion, format = "%d/%m/%Y"))
 
 	  # Obtener KEY_ctr de la tabla nomina_ctrl 
-      key_quincena_query <- 
-		sprintf (checkini$Queries$ctrl_nom_pendiente,ianio,iquincena,itipo)
-      key_quincena_data <- dbGetQuery(con, key_quincena_query)
+     
+      #key_quincena_query <- 
+		#sprintf (checkini$Queries$ctrl_nom_pendiente,ianio,iquincena,itipo)
+      #key_quincena_data <- dbGetQuery(con, key_quincena_query)
 	 
-	  ictrl_idx = 0
-	  if (nrow (key_quincena_data) > 0) {
-	     ictrl_idx = key_quincena_data$idx[1]
- 	  } else {
-	     stop ("No hay registro en nomina control")
-	  }
-	 
+	  #ictrl_idx = 0
+	  #if (nrow (key_quincena_data) > 0) {
+	  #   ictrl_idx = key_quincena_data$idx[1]
+ 	  #} else {
+	  #   stop ("No hay registro en nomina control")
+	  #}
+	   
+      
+      ictrl_idx = v_ctrl_idx
+      escribir_log (file_conn,paste("Valor idx ",ictrl_idx))
+
       # Obtener KEY_QUINCENA de la tabla EMPLEADOS_TOTALES
       key_quincena_query <- 
 	     sprintf ('SELECT id_empleado, key_quincena FROM empleados_totales where ctrl_idx = %s ',ictrl_idx) 
@@ -168,13 +176,15 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2)
       }
 
       # Cerrar la conexión a la base de datos
-      dbDisconnect(con)
+      #dbDisconnect(con)
 	  cerrar_log (file_conn) 
+     return(0)
 
   }, error = function(e) {
     mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	escribir_log (file_conn,mensaje_error)	
     cerrar_log (file_conn)
+    return (-1)
   })
   
 }

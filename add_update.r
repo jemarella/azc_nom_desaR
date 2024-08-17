@@ -1,14 +1,12 @@
 
 
-tabla_empleados <- function (ianio,iquincena,itipo,iarchivo) 
+tabla_empleados <- function (ianio,iquincena,itipo,iarchivo,con) 
 {
-
-file_conn = abrir_log ()
-escribir_log (file_conn,"Inicio Carga Empleados....")
-
 
 tryCatch (
 {
+   file_conn = abrir_log ()
+   escribir_log (file_conn,"Inicio Carga Empleados....")
 
 	#Leer valores archivo ini o properties
 	checkini = list()	
@@ -17,6 +15,7 @@ tryCatch (
 
 
 	#Conectar a la base de datos
+   if (!dbIsValid (con)) {
       if (length(checkini) > 0) {
          con <- dbConnect(RPostgres::Postgres(),
                        dbname = checkini$Database$dbname,
@@ -32,7 +31,7 @@ tryCatch (
                       user = "postgres",
                       password = "Pjmx3840")
       }
-
+   }
 #####query <- "SELECT * FROM empleados where empleados.activo = True;"  # Reemplaza con tu consulta
 
 query <- checkini$Queries$carga_emp # Reemplaza con tu consulta
@@ -121,7 +120,7 @@ tipo_nomina = itipo
 if (tipo_nomina == "Finiquitos") {
    result = anti_join(data_filtered,compare_emp,by='id_empleado')  
 
-   escribir_log (paste ( "Numero de registros para result y data_filtered ", nrow(result), nrow(data_filtered) , sep = " "))
+   escribir_log (file_conn,paste ( "Numero de registros para result y data_filtered ", nrow(result), nrow(data_filtered) , sep = " "))
 
 
    if ( nrow(result) == 0) 
@@ -160,8 +159,7 @@ if (tipo_nomina == "Finiquitos") {
       #empleados que no estan en la BD
 
       if (tipo_nomina == "Extraordinarios") {
-
-         escribir_log (file_conn, paste("No puede procesar extraordinarias para empleados que no existen en la BD, Son ", nrow(result), " empleados inexistentes.", sep = " "))
+         stop (paste("No puede procesar extraordinarias para empleados que no existen en la BD, Son ", nrow(result), " empleados inexistentes.", sep = " "))
   
       } else 
       {
@@ -259,23 +257,24 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
       }
    } else 
    {
-      escribir_log (file_conn,paste("No se puede procesar por ser de diferentes tamaños " , sep = " "))
+      stop ("No se puede procesar por ser de diferentes tamaños ")
    }
 }  # if tipo_nomina Compuesta o extraordinaria
 
    escribir_log (file_conn,paste("Cerrando BD", sep = " "))
 
-   dbDisconnect(con)  
+   #dbDisconnect(con)  #Mantenemos la conexion para el siguiente proceso
    cerrar_log(file_conn)
+   return (0)
 
 }, error = function(e) {
               # Formatear el mensaje de error con la fecha y hora
               mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
   
    		  escribir_log (file_conn,mensaje_error)
-
+           #dbDisconnect(con)  #Mantenemos la conexion para el siguiente proceso
    		  cerrar_log(file_conn)
-
+           return (-1)
             }
 )
 

@@ -1,15 +1,15 @@
 
-carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2)
+carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2,con,v_ctrl_idx)
 {
-   file_conn = abrir_log()
-   escribir_log(file_conn,"Inicio Carga Empleados Totales....")
-   
    tryCatch({
+      file_conn = abrir_log()
+      escribir_log(file_conn,"Inicio Carga Empleados Totales....")
    
       checkini <- list()
       iniFile <- "./cfg_creacheq.ini"
       checkini <- read.ini(iniFile)
     
+      if (!dbIsValid (con)) {
       # Conectar a la base de datos
       if (length(checkini) > 0) {
          con <- dbConnect(RPostgres::Postgres(),
@@ -26,35 +26,34 @@ carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2)
                       user = "postgres",
                       password = "Pjmx3840")
       }
-
-# datos prueba ianio = 2024
-#iquincena = '05'
-#itipo = 'Compuesta'
-#iarchivo1 = '52'
-#iarchivo2 = '52-azcapotzalco'
-
-
+      }
+      
       # Leer y preparar los datos del archivo 1
 
 	  ## ambiente desarrollo fidel file1 <- "C:/Users/PJMX/Desktop/Sistema de nomina Alcaldía/archivos originales/archivos originales/nomina base, estructura y n8/52-azcapotzalco/52.xlsx"
       ## ambiente desarrollo filde data1 <- read_excel(file1) %>%
          
 	  # Obtener KEY_ctr de la tabla nomina_ctrl 
-      key_quincena_query <- 
-		sprintf (checkini$Queries$ctrl_nom_pendiente,ianio,iquincena,itipo)
+     
+     # key_quincena_query <- 
+		#sprintf (checkini$Queries$ctrl_nom_pendiente,ianio,iquincena,itipo)
 
-	  escribir_log (file_conn,key_quincena_query)
+	  #escribir_log (file_conn,key_quincena_query)
 
-      key_quincena_data <- dbGetQuery(con, key_quincena_query)
+      #key_quincena_data <- dbGetQuery(con, key_quincena_query)
 	 
-	  ictrl_idx = 0
-	  if (nrow (key_quincena_data) > 0) {
-	     ictrl_idx = key_quincena_data$idx[1]
- 	  } else {
-	     stop ("No hay registro en nomina control")
-	  }		
-				 	 
-		 
+	  #ictrl_idx = 0
+	  
+     #if (nrow (key_quincena_data) > 0) {
+	  #   ictrl_idx = key_quincena_data$idx[1]
+ 	  #} else {
+	  #   stop ("No hay registro en nomina control")
+	  #}		
+     
+
+     ictrl_idx = v_ctrl_idx
+     escribir_log (file_conn,ictrl_idx)
+
       root_dir <- checkini$Directory$droot
       file1 <- paste0(root_dir, "nomina ", itipo, "/Respaldos/", ianio, "/", iquincena, "_", iarchivo1, ".xlsx")
 
@@ -90,9 +89,9 @@ carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2)
       # ambiente Fidel   day(fec_pago) > 15 ~ 2    # Segunda quincena
       # ambiente Fidel                      ),
       # ambiente Fidel anio = year(fec_pago)      # Año de la fecha
-	  quincena = iquincena,
-	  anio = ianio,
-	  ctrl_idx = ictrl_idx
+	   quincena = iquincena,
+	   anio = ianio,
+	   ctrl_idx = ictrl_idx
             ) %>%
       select(id_empleado, fec_pago, id_programa, id_prog_especial, id_activ_inst, id_grado, id_sector, quincena, anio,ctrl_idx)
 
@@ -125,25 +124,29 @@ carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2)
       # cambio 13_ago_2024  quitar key_quincena Fidel data_to_insert <- data_combined %>%
       #   select(key_quincena, quincena, anio, id_empleado, percepciones, deducciones, liquido, fec_pago, id_programa, id_prog_especial, id_activ_inst, id_grado, id_sector,ctrl_idx)
 
-      data_to_insert <- data_combined %>%
-         select(key_quincena,quincena, anio, id_empleado, percepciones, deducciones, liquido, fec_pago, id_programa, id_prog_especial, id_activ_inst, id_grado, id_sector,ctrl_idx)
-      
-      
+     data_to_insert <- data_combined %>%
+         select(quincena, anio, id_empleado, percepciones, deducciones, liquido, fec_pago, id_programa, id_prog_especial, id_activ_inst, id_grado, id_sector,ctrl_idx)
+
+
       # Verificar los primeros registros de data_to_insert
       escribir_log(file_conn,"Primeras filas de data_to_insert:")
       escribir_log(file_conn,head(data_to_insert))
 
       # Insertar los datos en la base de datos PostgreSQL
       dbWriteTable(con, "empleados_totales", data_to_insert, append = TRUE, row.names = FALSE)
-	  
+	
       # Cerrar la conexión a la base de datos
-      dbDisconnect(con)
+      #dbDisconnect(con)
 	   cerrar_log (file_conn) 
 
+      return (0)
   }, error = function(e) {
     mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	escribir_log (file_conn,mensaje_error)	
     cerrar_log (file_conn)
+    #dbDisconnect(con)
+
+    return (-1)
   })
   
 }

@@ -1,12 +1,13 @@
 
-tabla_empleados_nomina <- function (ianio,iquincena,itipo,iarchivo) 
+tabla_empleados_nomina <- function (ianio,iquincena,itipo,iarchivo,con) 
 {
 
-file_conn = abrir_log ()
-escribir_log (file_conn,"Inicio Carga Empleados nomina....")
 
 tryCatch (
 {
+   file_conn = abrir_log ()
+   escribir_log (file_conn,"Inicio Carga Empleados nomina....")
+
 
 	#Leer valores archivo ini o properties
 	checkini = list()	
@@ -15,6 +16,7 @@ tryCatch (
 
 
 	#Conectar a la base de datos
+   if (!dbIsValid (con)) {
       if (length(checkini) > 0) {
          con <- dbConnect(RPostgres::Postgres(),
                        dbname = checkini$Database$dbname,
@@ -30,7 +32,7 @@ tryCatch (
                       user = "postgres",
                       password = "Pjmx3840")
       }
-
+   }
 
 #####query <- "SELECT * FROM empleados where empleados.activo = True;"  # Reemplaza con tu consulta
 
@@ -249,14 +251,14 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
       }
    } else 
    {
-      escribir_log (file_conn,paste("No se puede procesar por ser de diferentes tamaños " , sep = " "))
+      stop(paste("No se puede procesar por ser de diferentes tamaños " , sep = " "))
    }
 }  # if tipo_nomina Compuesta o extraordinaria
 
    escribir_log (file_conn,paste("Cerrando BD", sep = " "))
-
-   dbDisconnect(con)  
+   #dbDisconnect(con)  
    cerrar_log(file_conn)
+   return (0)
 
 }, error = function(e) {
               # Formatear el mensaje de error con la fecha y hora
@@ -265,7 +267,7 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
    		  escribir_log (file_conn,mensaje_error)
 
    		  cerrar_log(file_conn)
-
+           return(-1)
             }
 )
 
