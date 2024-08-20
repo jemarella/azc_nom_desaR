@@ -52,13 +52,13 @@ if (dbIsValid (con_bd)){
 
 result_carga = '-1'
 
-if (ctrl_idx != -1 ) {
+if (ctrl_idx != -1 ) {  # se creo registro y ya se tiene un indice control ctrl_idx
    if (tipo == "Honorarios") {
       result_carga = carga_honorarios	(anio,quincena,tipo,archivo2,con_bd,ctrl_idx)
    } else {
-      result_carga = tabla_empleados (anio,quincena,tipo,archivo1,con_bd)
+      result_carga = tabla_empleados (anio,quincena,tipo,archivo1,con_bd,ctrl_idx)
       if (result_carga == '0' ) {
-         result_carga = tabla_empleados_nomina(anio,quincena,tipo,archivo1,con_bd) 
+         result_carga = tabla_empleados_nomina(anio,quincena,tipo,archivo1,con_bd,ctrl_idx) 
       }
       if (result_carga == '0') {
          result_carga = carga_resumen_nom (anio,quincena,tipo,archivo1,archivo2,con_bd,ctrl_idx)
@@ -69,5 +69,12 @@ if (ctrl_idx != -1 ) {
    }
    if (result_carga == '0') {
       update_nomina_idx_ok (con_bd,ctrl_idx)    
+   else {
+      update_nomina_idx_cancela (con_bd,ctrl_idx)
+   }
    }
 } 
+
+if (dbIsValid (con_bd)){   #Cerramos conexion a BD que se utilizo a traves de todos los modulos
+   dbDisconnect(con_bd)
+}

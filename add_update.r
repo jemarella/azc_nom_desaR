@@ -1,4 +1,4 @@
-tabla_empleados <- function (ianio,iquincena,itipo,iarchivo,con) 
+tabla_empleados <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx) 
 {
 
 tryCatch (
@@ -246,9 +246,9 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
 			   escribir_log (file_conn,paste( "update query empleados cambios ", str_update , sep = " "))
 
                      #dbExecute(con, str_update)
-
+                     #se agrega ctr_idx a la tabla bitacora
                      str_insert <- 
-                        sprintf("insert into bitacora ( id_empleado, campo, valor_inicial, valor_final) values (%s,'%s','%s','%s')",data_filtered[irow, 1], colnames(data_filtered[icol]), new_tab_emp[irow,icol],data_filtered[irow,icol])
+                        sprintf("insert into bitacora ( id_empleado, campo, valor_inicial, valor_final,ctrl_idx) values (%s,'%s','%s','%s',%s)",data_filtered[irow, 1], colnames(data_filtered[icol]), new_tab_emp[irow,icol],data_filtered[irow,icol],v_ctrl_idx)
                      #print (str_insert)
 			   escribir_log (file_conn,paste("insert bitacora ", str_insert , sep = " "))
                      dbExecute(con, str_insert)

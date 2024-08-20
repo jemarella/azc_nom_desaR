@@ -94,6 +94,8 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
       # Obtener los id_concepto válidos de la tabla CAT_CONCEPTOS
       valid_concepts_query <- 'SELECT id_concepto FROM public.cat_conceptos;'
       valid_concepts <- dbGetQuery(con, valid_concepts_query)$id_concepto
+
+      
       # Unir los datos del archivo Excel con los de la tabla EMPLEADOS_TOTALES
       merged_data <- data %>%
          left_join(key_quincena_data, by = "id_empleado")
@@ -129,7 +131,20 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
             fec_fin_p, 
             fec_imputacion
             )
-            
+
+         if (itipo == "Extraordinarios") {
+            v_nom_concepts_query <- sprintf('SELECT nombre_concepto FROM public.cat_conceptos where id_concepto = %s',percepciones_empleado$id_concepto[1])
+            v_nom_concepts <- dbGetQuery(con, v_nom_concepts_query)$nombre_concepto[1]
+
+            #Tomar nombre de concepto para actualizar cuando son nominas extraordinarias
+            #Escribir descripción de extraordinaria 
+            sql_descrip = checkini$Queries$update_desc_extaor
+            sql_descrip = sprintf(sql_descrip,v_nom_concepts,v_ctrl_idx)
+
+            escribir_log(file_conn, paste ("Actualizar descripcion extraordinaria de acuerdo a conceptos ", sql_descrip))
+            dbExecute(con, sql_descrip)
+         }
+
          # Verificar los datos finales que se van a insertar en percepciones_empleado
          escribir_log(file_conn,"Datos finales a insertar en percepciones_empleado:")
          escribir_log(file_conn,head(percepciones_empleado))
