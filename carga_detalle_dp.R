@@ -6,7 +6,8 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
    
    tryCatch({
     
-   
+            codigoerror = 0
+
       checkini <- list()
       iniFile <- "./cfg_creacheq.ini"
       checkini <- read.ini(iniFile)
@@ -42,6 +43,8 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
 
       # Verificar si el archivo existe
       if (!file.exists(file_path)) {
+                  codigoerror = 701
+
          stop(paste("Error: El archivo no existe en la ruta especificada:", file_path))
       }
       data <- read_excel(file_path)
@@ -84,6 +87,8 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
       key_quincena_data <- dbGetQuery(con, key_quincena_query)
 
 	  if (nrow (key_quincena_data) == 0) {
+               codigoerror = 707
+
 	     stop ("No hay registros de donde obtener la Key de nomina")
 	  }
 	  
@@ -116,6 +121,8 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
       if (nrow(invalid_concepts) > 0) {
          escribir_log(file_conn,"Alerta: Los siguientes id_concepto no están registrados en la base de datos:")
          escribir_log(file_conn,invalid_concepts)
+                        codigoerror = 708
+
          stop ("Error en conceptos percepciones")
       # Aquí puedes agregar código para mostrar una alerta al usuario en el front-end.
       } else {
@@ -179,6 +186,8 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
       if (nrow(invalid_concepts) > 0) {
          escribir_log(file_conn,"Alerta: Los siguientes id_concepto1 no están registrados en la base de datos:")
          escribir_log(file_conn,invalid_concepts)
+                                 codigoerror = 709
+
          stop ("Error en conceptos deducciones")
       # Aquí puedes agregar código para mostrar una alerta al usuario en el front-end.
       } else {
@@ -194,13 +203,18 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
       # Cerrar la conexión a la base de datos
       #dbDisconnect(con)
 	  cerrar_log (file_conn) 
-     return('0')
-
+    
+      #return ('0')
+      return (codigoerror) #agregado 20-08-2024
   }, error = function(e) {
     mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	escribir_log (file_conn,mensaje_error)	
     cerrar_log (file_conn)
-    return (mensaje_error)
+    #return (mensaje_error)
+    if (codigoerror == 0) {
+                codigoerror = 700
+             }
+    return (codigoerror)#agregado 20-08-2024
   })
   
 }

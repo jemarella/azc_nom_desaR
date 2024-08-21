@@ -14,7 +14,8 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
    
   
    tryCatch({
-   
+                           codigoerror = 0
+
      file_conn = abrir_log()
      escribir_log(file_conn,"Inicio Carga Honorarios....")
      
@@ -73,6 +74,7 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
 
       # Verificar si el archivo existe
       if (!file.exists(file_path)) {
+         codigoerror = 701
          stop(paste("Error: El archivo no existe en la ruta especificada:", file_path))
       }
 
@@ -164,6 +166,7 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
       data_2 <- data_2[ !is.na(data_2$id), ]
 
       if (nrow(data) != nrow(data_2)) {
+         codigoerror = 714
          stop ("Las filas en hoja1 y hoja2 del excel no coinciden, abortar proceso") 
       }
 
@@ -202,13 +205,18 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
       # Cerrar la conexión a la base de datos
       #dbDisconnect(con)
 	  cerrar_log (file_conn)
-	  return ('0')
+	  #return ('0')
+     return (codigoerror) #agregado 20-08-2024
 
   }, error = function(e) {
       mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	escribir_log (file_conn,mensaje_error)	
       cerrar_log (file_conn)
-      return (mensaje_error)
+      #return (mensaje_error)
+      if (codigoerror == 0) {
+                codigoerror = 700
+             }
+    return (codigoerror)#agregado 20-08-2024
   })
   
 }

@@ -23,6 +23,9 @@ cerrar_log <- function(file_ctrl) {
 abrir_BD <- function ()
 {
    tryCatch({
+      codigoerror = 0 # logica manejo errores
+      val_return = 0
+
       file_conn = abrir_log()
       escribir_log(file_conn,"Abriendo BD....")
    
@@ -41,19 +44,28 @@ abrir_BD <- function ()
       }	else {
          con_bd <- dbConnect(RPostgres::Postgres(),
                       dbname = "SistemaNomina",
-                      host = "192.168.100.215",
+                      host = "192.168.100.252",
                       port = 5432,
                       user = "postgres",
                       password = "Pjmx3840")
       }
       cerrar_log (file_conn)
-      return (con_bd) 
+      if (!dbIsValid (con_bd)) {
+         val_return = -1
+         codigoerror = 715
+      }
+      return (list (val_return=val_return,codigoerror=codigoerror,con_bd=con_bd)) 
 
    }, error = function(e) {
      mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	  escribir_log (file_conn,mensaje_error)	
      cerrar_log (file_conn)
-     return (-1)
+     #logica manejo de errores.
+     val_return = -1
+     if (codigoerror == 0) { #significa   que caimos aquí pero no pudimos capturar el error
+       codigoerror = 700
+     }
+     return (list (val_return=val_return,codigoerror=codigoerror,con_bd=con_bd)) 
    })
 
 }
@@ -73,7 +85,7 @@ busca_nomina_idx <- function(con_bd,ianio,iquincena,inombre)
          result_qry = dbGetQuery (con_bd,sql_query)
 	      #result_qry = dbSendQuery(con_bd, sql_query)
          #response = dbFetch (result_qry)
-         result_qry <- as.data.frame result_qry
+         result_qry <- as.data.frame (result_qry)
 
          if (nrow(result_qry > 0)) {
  		      escribir_log (file_conn,"Encontre registro ")
@@ -104,6 +116,8 @@ busca_nomina_idx <- function(con_bd,ianio,iquincena,inombre)
 update_nomina_idx_ok <- function(con_bd, vidx) {
    
    tryCatch({
+      codigoerror = 0
+
       file_conn = abrir_log()
 
       if (dbIsValid(con_bd)) {
@@ -116,45 +130,57 @@ update_nomina_idx_ok <- function(con_bd, vidx) {
 	   #dbCommit(con_bd)
          val_return = 0
       } else {
+      codigoerror = 715  # Conexion a BD invalida
 	   val_return = -1
       } 
       cerrar_log(file_conn)
-	return (val_return) 
+	return (list(val_return=val_return,codigoerror=codigoerror)) 
 
    }, error = function(e) {
       mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
       escribir_log (file_conn,mensaje_error)	
       cerrar_log (file_conn)
-      return (-1)
+     val_return = -1
+     if (codigoerror == 0) { #significa   que caimos aquí pero no pudimos capturar el error
+       codigoerror = 700
+     }
+     return (list(val_return=val_return,codigoerror=codigoerror))
    })
 
 }
 
-update_nomina_idx_cancela <- function(con_bd, vidx) {
+update_nomina_idx_cancela <- function(con_bd, vidx,vcodigoerror) {
    
    tryCatch({
+      codigoerror = 0
+
       file_conn = abrir_log()
 
       if (dbIsValid(con_bd)) {
 	   #dbBegin (con_bd) 
 
-         sql_update <- sprintf ("update nomina_idx set reg_cancelado = TRUE, fin_carga = CURRENT_TIMESTAMP where ctrl_idx = %s",vidx)
+         sql_update <- sprintf ("update nomina_idx set reg_cancelado = TRUE, fin_carga = CURRENT_TIMESTAMP, codigoerror = %s where ctrl_idx = %s",vcodigoerror,vidx)
 	      escribir_log (file_conn, paste("Actualizando para cancelar el registro debido a errores en el proceso ", sql_update))
          dbExecute(con_bd, sql_update) 
 
 	   #dbCommit(con_bd)
          val_return = 0
       } else {
-	   val_return = -1
+         codigoerror = 715 #Conexion a BD invalida
+	      val_return = -1
       } 
       cerrar_log(file_conn)
-	return (val_return) 
+	return (list (val_return=val_return,codigoerror=codigoerror)) 
 
    }, error = function(e) {
       mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
       escribir_log (file_conn,mensaje_error)	
       cerrar_log (file_conn)
-      return (-1)
+      val_return = -1
+      if (codigoerror == 0) { #significa   que caimos aquí pero no pudimos capturar el error
+        codigoerror = 700
+      }
+      return (list(val_return=val_return,codigoerror=codigoerror))
    })
 
 }
@@ -163,6 +189,9 @@ update_nomina_idx_cancela <- function(con_bd, vidx) {
 crear_nomina_idx <- function(ianio,iquincena,inombre,con_bd)
 {
    tryCatch({
+      codigoerror = 0
+      val_return = 0
+
       file_conn = abrir_log()
       escribir_log(file_conn,"Creando Registro....")
    
@@ -175,7 +204,8 @@ crear_nomina_idx <- function(ianio,iquincena,inombre,con_bd)
          completa = res_busca$completa
 
          if (ctrl_idx != -1) {
-            val_return = -1 
+            codigoerror = 716
+            val_return = -1
             escribir_log (file_conn,"El registro para nomina ya existe con mismos parametros, no puede procesarse")
             #if (completa == FALSE) {  #Dado que la bandera indica que no se ha procesado daremos otra oportunidad de cargarlo
             #   val_return = ctrl_idx
@@ -197,17 +227,22 @@ crear_nomina_idx <- function(ianio,iquincena,inombre,con_bd)
          }   
 
       } else {
-	      val_return = -1	
+         codigoerror = 715
+	      val_return = -1
       } 
 
       cerrar_log(file_conn)
-	   return (val_return)
+	   return (list (val_return=val_return,codigoerror=codigoerror))
 
    }, error = function(e) {
       mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
       escribir_log (file_conn,mensaje_error)	
       cerrar_log (file_conn)
-      return (-1)
+      val_return = -1
+      if (codigoerror == 0) { #significa   que caimos aquí pero no pudimos capturar el error
+        codigoerror = 700
+      }
+      return (list (val_return=val_return,codigoerror=codigoerror))
    })
 
 }

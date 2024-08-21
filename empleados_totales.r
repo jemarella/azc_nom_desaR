@@ -2,6 +2,9 @@
 carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2,con,v_ctrl_idx)
 {
    tryCatch({
+
+      codigoerror=0 
+
       file_conn = abrir_log()
       escribir_log(file_conn,"Inicio Carga Empleados Totales....")
    
@@ -59,14 +62,16 @@ carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2,con,v_c
 
       # Verificar si el archivo existe
       if (!file.exists(file1)) {
+         codigoerror = 701 #agregar linea en cada stop 
          stop(paste("Error: El archivo no existe en la ruta especificada:", file1))
       }
 
       data1 <- read_excel(file1) %>%
-	 
       distinct() %>%
       rename_all(tolower) %>%
+
       select(id_empleado, percepciones, deducciones, liquido)
+	  	  data1$id_empleado <- as.integer(data1$id_empleado) #agregado
 
       # Leer y preparar los datos del archivo 2
       ## ambiente desarrollo fidel file2 <- "C:/Users/PJMX/Desktop/Sistema de nomina Alcaldía/archivos originales/archivos originales/nomina base, estructura y n8/52-azcapotzalco/52-azcapotzalco.xlsx"
@@ -76,14 +81,17 @@ carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2,con,v_c
 
       # Verificar si el archivo existe
       if (!file.exists(file2)) {
+         codigoerror = 701
          stop(paste("Error: El archivo no existe en la ruta especificada:", file2))
       }
+
       data2 <- read_excel(file2) %>%
-	  
       distinct() %>%
       rename_all(tolower) %>%
       mutate(
+
       fec_pago = dmy(fec_pago),  # Convertir FEC_PAGO a tipo Date
+	  
       # ambiente Fidel quincena = case_when(
       # ambiente Fidel    day(fec_pago) <= 15 ~ 1,  # Primera quincena
       # ambiente Fidel   day(fec_pago) > 15 ~ 2    # Segunda quincena
@@ -92,8 +100,12 @@ carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2,con,v_c
 	   quincena = iquincena,
 	   anio = ianio,
 	   ctrl_idx = ictrl_idx
+	   
             ) %>%
+
       select(id_empleado, fec_pago, id_programa, id_prog_especial, id_activ_inst, id_grado, id_sector, quincena, anio,ctrl_idx)
+	  				  	  data2$id_empleado <- as.integer(data2$id_empleado) #agregado
+
 
       # Verificar nombres de columnas en data1 y data2
       escribir_log(file_conn,"Columnas en data1:")
@@ -139,14 +151,19 @@ carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2,con,v_c
       #dbDisconnect(con)
 	   cerrar_log (file_conn) 
 
-      return ('0')
+      #return ('0')
+      return (codigoerror) #agregado 20-08-2024
   }, error = function(e) {
     mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	escribir_log (file_conn,mensaje_error)	
     cerrar_log (file_conn)
     #dbDisconnect(con)
 
-    return (mensaje_error)
+    #return (mensaje_error)
+    if (codigoerror == 0) {
+                codigoerror = 700
+             }
+    return (codigoerror)#agregado 20-08-2024
   })
   
 }

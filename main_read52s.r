@@ -43,38 +43,51 @@ source("./honorarios.R")
 #conn_bd = abrir_BD
 #if conn_bd != NA {
 
-con_bd = abrir_BD()
+result_bd = abrir_BD() 
+con_bd = result_bd$con_bd
+codigoerror = result_bd$codigoerror
+#con_bd = abrir_BD()
+
 ctrl_idx = -1
 
 if (dbIsValid (con_bd)){
-   ctrl_idx = crear_nomina_idx (anio,quincena,tipo,con_bd)
+   result_crear = crear_nomina_idx (anio,quincena,tipo,con_bd)
+   ctrl_idx = result_crear$val_return
+   codigoerror = result_crear$codigoerror
 }
 
-result_carga = '-1'
+
+result_carga = -1
 
 if (ctrl_idx != -1 ) {  # se creo registro y ya se tiene un indice control ctrl_idx
    if (tipo == "Honorarios") {
       result_carga = carga_honorarios	(anio,quincena,tipo,archivo2,con_bd,ctrl_idx)
    } else {
       result_carga = tabla_empleados (anio,quincena,tipo,archivo1,con_bd,ctrl_idx)
-      if (result_carga == '0' ) {
+      if (result_carga == 0 ) {
          result_carga = tabla_empleados_nomina(anio,quincena,tipo,archivo1,con_bd,ctrl_idx) 
       }
-      if (result_carga == '0') {
+      if (result_carga == 0) {
          result_carga = carga_resumen_nom (anio,quincena,tipo,archivo1,archivo2,con_bd,ctrl_idx)
       }
-      if (result_carga == '0') {
+      if (result_carga == 0) {
          result_carga = carga_detalles_nom (anio,quincena,tipo,archivo2,con_bd,ctrl_idx)
       } 
-   }
-   if (result_carga == '0') {
-      update_nomina_idx_ok (con_bd,ctrl_idx)    
-   else {
-      update_nomina_idx_cancela (con_bd,ctrl_idx)
-   }
-   }
+   }   												
 } 
 
+if (result_carga == 0) {
+   result_ok = update_nomina_idx_ok (con_bd,ctrl_idx)    
+   codigoerror = result_ok$codigoerror
+} else {
+   codigoerror = result_carga
+   result_cancela = update_nomina_idx_cancela (con_bd,ctrl_idx,codigoerror)
+}
+
+
+#En este punto codigoerror contiene el valor de error si todo fue bien sera igual a 0
+#print (codigoerror)
+   
 if (dbIsValid (con_bd)){   #Cerramos conexion a BD que se utilizo a traves de todos los modulos
    dbDisconnect(con_bd)
-}
+}   

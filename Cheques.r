@@ -1,5 +1,5 @@
 # Ruta a la biblioteca personalizada
-lib_path <- "C:/Users/USUARIO.138-1596/AppData/Local/Temp/Rtmp6J3eRS/downloaded_packages"
+lib_path <- "C:/Users/Latitude/AppData/Local/R/win-library/4.4"
 
 # Configurar un espejo de CRAN
 options(repos = c(CRAN = "https://cran.rstudio.com/"))
@@ -19,7 +19,7 @@ packages <- c("bit", "bit64", "DBI", "RPostgres", "dplyr", "lubridate", "readxl"
 sapply(packages, install_and_load)
 
 # Crear/abrir archivo de log
-file_conn <- file("C:/Users/USER/Music/R/mi_log.txt", open='a')
+file_conn <- file("C:/Users/Latitude/Documents/R/Script/mi_log.txt", open='a')
 
 # Función para registrar mensajes en el log
 log_message <- function(message) {

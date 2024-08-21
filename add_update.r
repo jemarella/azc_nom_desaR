@@ -3,6 +3,7 @@ tabla_empleados <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
 
 tryCatch (
 {
+   codigoerror = 0 
    file_conn = abrir_log ()
    escribir_log (file_conn,"Inicio Carga Empleados....")
 
@@ -60,6 +61,8 @@ escribir_log (file_conn, paste ("Numero de registros para emp_actual , emp_nom_a
 
       # Verificar si el archivo existe
       if (!file.exists(file1)) {
+       #agregar linea en cada stop
+       codigoerror = 701  
          stop(paste("Error: El archivo no existe en la ruta especificada:", file1))
       }
 
@@ -83,7 +86,9 @@ required_fields <- c("id_empleado", "nombre", "apellido_1", "apellido_2",
 missing_columns <- setdiff(required_fields, names(data_52))
 
 if (length(missing_columns) > 0) {
-  
+         #codigo error
+         codigoerror = 702 
+
   stop(paste("Faltan las siguientes columnas en el archivo:", paste(missing_columns, collapse = ", ")))
   # porner codigo para hacer un insert a la tabla bitacora y a la tabla nomina_ctrl
 }
@@ -139,6 +144,8 @@ if (tipo_nomina == "Finiquitos") {
 
    } else 
    {
+        #codigo error
+         codigoerror = 703 
       stop ("El resultado de nrow es diferente de cero, hay empleados que no existen, no podemos proceder con finiquitos ")
    }
 } else 
@@ -153,6 +160,8 @@ if (tipo_nomina == "Finiquitos") {
    if (nrow(check_inactivo) > 0 ) {
      escribir_log (file_conn, check_inactivo) 
      escribir_log (file_conn,result$id_empleado)
+     #codigo error
+         codigoerror = 704
       stop ("No pueden adicionarse empleados que estan inactivos nuevamente") 
    }
   
@@ -160,7 +169,8 @@ if (tipo_nomina == "Finiquitos") {
       #empleados que no estan en la BD
 
       if (tipo_nomina == "Extraordinarios") {
-
+ #codigo error
+         codigoerror = 705
          stop (paste ("No puede procesar extraordinarias para empleados que no existen en la BD, Son ", nrow(result), " empleados inexistentes."))
   
       } else 
@@ -259,6 +269,8 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
       }
    } else 
    {
+       #codigo error
+         codigoerror = 706
       stop (paste("No se puede procesar por ser de diferentes tamaños " , sep = " "))
    }
 }  # if tipo_nomina Compuesta o extraordinaria
@@ -267,7 +279,8 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
 
    #dbDisconnect(con)  #Mantenemos la conexion para el siguiente proceso
    cerrar_log(file_conn)
-   return ('0')
+   #return ('0')
+   return (codigoerror) #agregado 20-08-2024
 
 }, error = function(e) {
               # Formatear el mensaje de error con la fecha y hora
@@ -276,7 +289,13 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
    		  escribir_log (file_conn,mensaje_error)
            #dbDisconnect(con)  #Mantenemos la conexion para el siguiente proceso
    		  cerrar_log(file_conn)
-           return (mensaje_error)
+           #return (mensaje_error)
+             if (codigoerror == 0) {
+                codigoerror = 700
+             }
+             return (codigoerror)#agregado 20-08-2024
+             
+
             }
 )
 
