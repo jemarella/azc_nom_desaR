@@ -140,6 +140,21 @@ carga_resumen_nom <- function (ianio,iquincena,itipo,iarchivo1,iarchivo2,con,v_c
          select(quincena, anio, id_empleado, percepciones, deducciones, liquido, fec_pago, id_programa, id_prog_especial, id_activ_inst, id_grado, id_sector,ctrl_idx)
 
 
+      #Verificar que no existan registros con fecha pago igual , es decir pudieron haber elegido desde la página una quincena incorrecta
+      #y quieren volver a cargar el mismo archivo 52-azcapotzalco
+      vfec_pago = data_to_insert$fec_pago[1]
+      str_qry = paste ("select fec_pago from nomina_idx where fec_pago = '%s' and  " ,
+                       "ctrl_idx <> %s and reg_cancelado =  FALSE and carga_completa = TRUE ")
+
+      #select fec_pago from nomina_idx where fec_pago = '2024-01-15' and ctrl_idx <> 145 and reg_cancelado =  FALSE and carga_completa = TRUE
+
+      str_qry = sprintf (str_qry,vfec_pago,ctrl_idx)
+      df_fecpago = dbGetQuery (con,str_qry)
+      if (nrow (df_fecpago) > 0 ) {
+         codigoerror = 721 #agregar linea en cada stop 
+         stop(paste ("Error: Ya existen registros con la misma fecha de pago, ", vfec_pago , " no se pueden agregar nuevamente"))
+      }
+
       # Verificar los primeros registros de data_to_insert
       escribir_log(file_conn,"Primeras filas de data_to_insert:")
       escribir_log(file_conn,head(data_to_insert))

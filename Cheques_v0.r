@@ -38,72 +38,61 @@ ini_cheq <- as.integer(args[4])
 log_message(paste("Parámetros leídos:", anio, quincena, tipo, ini_cheq))
 
 tryCatch(
-   {
-      #Leer valores archivo ini o properties
-	    checkini = list()	
+  {
+#Leer valores archivo ini o properties
+	checkini = list()	
       iniFile = "./cfg_creacheq.ini"
       checkini <- read.ini(iniFile)
 
-      result_bd = abrir_BD() 
-      con = result_bd$con_bd
-      codigoerror = result_bd$codigoerror
 
-      if (codigoerror == 715) { # !dbIsValid (con)) {
-     	   escribir_log (file_conn,"Conexion BD invalida")
-	       val_return = -1
-         codigoerror = 715
-         stop ("Conexion DB invalida")
+	#Conectar a la base de datos
+	      if (length(checkini) > 0) {
+         con <- dbConnect(RPostgres::Postgres(),
+                       dbname = checkini$Database$dbname,
+                       host = checkini$Database$host,
+                       port = checkini$Database$port,
+                       user = checkini$Database$user,
+                       password = checkini$Database$password)
+      }	else {
+         con <- dbConnect(RPostgres::Postgres(),
+                      dbname = "SistemaNomina",
+                      host = "192.168.100.215",
+                      port = 5432,
+                      user = "postgres",
+                      password = "Pjmx3840")
       }
 
-      
-      # Consulta para obtener el IDX de la quincena
+    # Consulta para obtener el IDX de la quincena
+    linea1 <- paste("select idx from nomina_ctrl as aa",
+                    "where aa.anio = %s and aa.quincena = '%s' and aa.nombre_nomina = '%s'")
+    str_query <- sprintf(linea1, anio, quincena, tipo)
+    log_message(paste("Query para búsqueda de quincena:", str_query))
 
-      linea1 <- checkini$Queries$ctrl_nom_idx_read
-                    #("select idx from nomina_ctrl as aa",
-                    #"where aa.anio = %s and aa.quincena = '%s' and aa.nombre_nomina = '%s'")
-      
-      str_query <- sprintf(linea1, anio, quincena)
-      escribir_log (file_conn,paste("Query para búsqueda de quincena:", str_query))
+    resultado <- dbGetQuery(con, str_query)
 
-      resultado <- dbGetQuery(con, str_query)
+    if (nrow(resultado) > 0) {
+      idx_quincena <- as.integer(resultado[1,1])
+      log_message(paste("IDX control de quincena =", idx_quincena))
+    } else {
+      stop("No se encontró quincena con los argumentos de entrada.")
+    }
 
-      if (nrow(resultado) > 0) {
-         idx_quincena <- as.integer(resultado$ctrl_idx[1])
-         escribir_log (file_conn, paste("IDX control de quincena =", idx_quincena))
-      } else {
-         stop("No se encontró quincena con los argumentos de entrada.")
-      }
+    # Consulta para contar el número de cheques
+    linea1 <- paste("select count(aa.idx) from nomina_ctrl as aa",
+                    "join empleados_totales as bb on bb.ctrl_idx = aa.idx",
+                    "join empleados_nomina as cc on cc.id_empleado = bb.id_empleado",
+                    "where aa.idx = %s and cc.id_banco is NULL")
+    str_query <- sprintf(linea1, idx_quincena)
+    log_message(paste("Query para búsqueda del total de cheques:", str_query))
 
+    resultado <- dbGetQuery(con, str_query)
 
-      root_dir <- checkini$Directory$droot
-
-select count (bb.id_empleado) 
-from nomina_idx as zz
-join empleados_totales as bb on bb.ctrl_idx = zz.ctrl_idx 
-where zz.anio = 2024 and zz.quincena = '01' and zz.reg_cancelado = FALSE and zz.carga_completa = TRUE
-and NOT EXISTS (
-    SELECT 1 FROM dispersion as aa
-    WHERE aa.id_empleado = bb.id_empleado and aa.anio = zz.anio and aa.real_quincena = zz.quincena
-) 
-group by zz.quincena
-      # Consulta para contar el número de cheques
-      # debe pasarse el parametro Base, Estructura, Nomina 8, Extraordinarios, Finiquitos 
-      linea1 <- paste("select count (bb.id_empleado) from nomina_idx as zz",
-                    "join empleados_totales as bb on bb.ctrl_idx = zz.ctrl_idx",
-                    "where zz.anio = %s and zz.quincena = '%s' and zz.reg_cancelado = FALSE and zz.carga_completa = TRUE",
-                    "and NOT EXISTS ( SELECT 1 FROM dispersion as aa  ",
-                    "WHERE aa.id_empleado = bb.id_empleado and aa.anio = zz.anio and aa.real_quincena = zz.quincena) ")
-      str_query <- sprintf(linea1, idx_quincena)
-      log_message(paste("Query para búsqueda del total de cheques:", str_query))
-
-      resultado <- dbGetQuery(con, str_query)
-
-      if (nrow(resultado) > 0) {
-         num_cheques <- as.integer(resultado[1,1])
-         log_message(paste("Número de cheques a crear =", num_cheques))
-      } else {
-         stop("No se encontró el total de cheques a crear.")
-      }
+    if (nrow(resultado) > 0) {
+      num_cheques <- as.integer(resultado[1,1])
+      log_message(paste("Número de cheques a crear =", num_cheques))
+    } else {
+      stop("No se encontró el total de cheques a crear.")
+    }
 
     # Verificar si los cheques ya existen en el rango dado
     linea1 <- paste("select num_cheque from t_cheques as aa",

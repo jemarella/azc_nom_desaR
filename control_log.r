@@ -19,6 +19,19 @@ cerrar_log <- function(file_ctrl) {
    close(file_ctrl)
 }
 
+dividir_linea <- function(linea, anchos) {   #Se utiliza para cargar edo cuenta, separa una linea de acuerdo a longitudes fijas
+      inicio <- 1
+      fin <- anchos[1]
+      columnas <- c()
+  
+      for (ii in 1:length(anchos)) {
+         columna <- trimws(substr(linea, inicio, fin))
+         columnas <- c(columnas, columna)
+         inicio <- fin + 1
+         fin <- fin + anchos[ii+1]
+      }
+      return(columnas)
+}
 
 abrir_BD <- function ()
 {
@@ -32,7 +45,7 @@ abrir_BD <- function ()
       checkini <- list()
       iniFile <- "./cfg_creacheq.ini"
       checkini <- read.ini(iniFile)
-    
+
       # Conectar a la base de datos
       if (length(checkini) > 0) {
          con_bd <- dbConnect(RPostgres::Postgres(),
@@ -113,6 +126,7 @@ busca_nomina_idx <- function(con_bd,ianio,iquincena,inombre)
    })
 }
 
+
 update_nomina_idx_ok <- function(con_bd, vidx) {
    
    tryCatch({
@@ -123,8 +137,13 @@ update_nomina_idx_ok <- function(con_bd, vidx) {
       if (dbIsValid(con_bd)) {
 	   #dbBegin (con_bd) 
 
-         sql_update <- sprintf ("update nomina_idx set carga_completa = TRUE, fin_carga = CURRENT_TIMESTAMP where ctrl_idx = %s",vidx)
-	     escribir_log (file_conn, paste("Actualizando registro para completar proceso ", sql_update))
+         str_qry = "select fec_pago from empleados_totales where ctrl_idx = %s LIMIT 1"
+         str_qry = sprintf (str_qry,vidx)
+         df_et = dbGetQuery (con_bd,str_qry)
+         vfec_pago = df_et$fec_pago[1]
+
+         sql_update <- sprintf ("update nomina_idx set carga_completa = TRUE, fin_carga = CURRENT_TIMESTAMP, fec_pago = '%s' where ctrl_idx = %s",vfec_pago,vidx)
+	      escribir_log (file_conn, paste("Actualizando registro para completar proceso ", sql_update))
          dbExecute(con_bd, sql_update) 
 
 	   #dbCommit(con_bd)
@@ -226,6 +245,50 @@ crear_nomina_idx <- function(ianio,iquincena,inombre,con_bd)
             val_return = ctrl_idx
          }   
 
+      } else {
+         codigoerror = 715
+	      val_return = -1
+      } 
+
+      cerrar_log(file_conn)
+	   return (list (val_return=val_return,codigoerror=codigoerror))
+
+   }, error = function(e) {
+      mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
+      escribir_log (file_conn,mensaje_error)	
+      cerrar_log (file_conn)
+      val_return = -1
+      if (codigoerror == 0) { #significa   que caimos aquí pero no pudimos capturar el error
+        codigoerror = 700
+      }
+      return (list (val_return=val_return,codigoerror=codigoerror))
+   })
+
+}
+
+crear_idx_edocta <- function(anio,quincena,tipo_carga,vuser,varchivo1,con_bd,con_error)
+{
+   tryCatch({
+      codigoerror = 0
+      val_return = 0
+
+      file_conn = abrir_log()
+      escribir_log(file_conn,"Creando Registro para estado de cuenta...")
+   
+      #con_bd = abrir_BD ()
+      
+      if (dbIsValid(con_bd)){
+         if (con_error == TRUE) {
+            sql_insert <- paste ("insert into edocta_idx (anio,quincena,tipo_carga,reg_cancelado,user_caga,nombre_archivo,fecha_carga) ",
+                              "values (%s,'%s','%s',TRUE,'%s','%s',CURRENT_TIMESTAMP)")
+         } else {
+            sql_insert <- paste ("insert into edocta_idx (anio,quincena,tipo_carga,carga_completa,user_caga,nombre_archivo,fecha_carga) ",
+                              "values (%s,'%s','%s',TRUE,'%s','%s',CURRENT_TIMESTAMP)")
+         }
+         sql_insert <- sprintf (sql_insert,anio,quincena,tipo_carga,vuser,varchivo1)
+         
+         escribir_log(file_conn,paste("Query para insert edocta o dispersion ",sql_insert))
+	      dbExecute(con_bd, sql_insert) 
       } else {
          codigoerror = 715
 	      val_return = -1
