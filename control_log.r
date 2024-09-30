@@ -127,7 +127,7 @@ busca_nomina_idx <- function(con_bd,ianio,iquincena,inombre)
 }
 
 
-update_nomina_idx_ok <- function(con_bd, vidx) {
+update_nomina_idx_ok <- function(con_bd, vidx,itipo) {
    
    tryCatch({
       codigoerror = 0
@@ -136,12 +136,17 @@ update_nomina_idx_ok <- function(con_bd, vidx) {
 
       if (dbIsValid(con_bd)) {
 	   #dbBegin (con_bd) 
-
-         str_qry = "select fec_pago from empleados_totales where ctrl_idx = %s LIMIT 1"
-         str_qry = sprintf (str_qry,vidx)
-         df_et = dbGetQuery (con_bd,str_qry)
-         vfec_pago = df_et$fec_pago[1]
-
+         if (itipo == 'Honorarios') {
+            str_qry = "select fecha_pago from honorarios where ctrl_idx = %s LIMIT 1"
+            str_qry = sprintf (str_qry,vidx)
+            df_et = dbGetQuery (con_bd,str_qry)
+            vfec_pago = df_et$fecha_pago[1]
+         } else {
+            str_qry = "select fec_pago from empleados_totales where ctrl_idx = %s LIMIT 1"
+            str_qry = sprintf (str_qry,vidx)
+            df_et = dbGetQuery (con_bd,str_qry)
+            vfec_pago = df_et$fec_pago[1]
+         }
          sql_update <- sprintf ("update nomina_idx set carga_completa = TRUE, fin_carga = CURRENT_TIMESTAMP, fec_pago = '%s' where ctrl_idx = %s",vfec_pago,vidx)
 	      escribir_log (file_conn, paste("Actualizando registro para completar proceso ", sql_update))
          dbExecute(con_bd, sql_update) 
@@ -222,6 +227,16 @@ crear_nomina_idx <- function(ianio,iquincena,inombre,con_bd)
          ctrl_idx = res_busca$val_return
          completa = res_busca$completa
 
+         str_qry = "select fecha_ini from cat_quincena where anio = %s and quincena = '%s'"
+         str_qry = sprintf (str_qry,ianio,iquincena)
+         df_catq = dbGetQuery (con_bd,str_qry)
+         if (nrow(df_catq) > 0){
+            vfec_pago = df_catq$fecha_ini[1]
+         } else {
+            codigoerror = 724
+            stop (paste("No existe registro para catalogo quincena  ", ianio, " ", iquincena , " no se puede procesar"))
+         }  
+
          if (ctrl_idx != -1) {
             codigoerror = 716
             val_return = -1
@@ -232,7 +247,9 @@ crear_nomina_idx <- function(ianio,iquincena,inombre,con_bd)
             #} 
             # El registro ya no podra ocuparse para una segunda carga, mejor sí la carga falla se cancela
          } else {
+            #sql_insert <- sprintf ("insert into nomina_idx (anio,quincena,nombre_nomina,fec_pago) values (%s,'%s','%s','%s')",ianio,iquincena,inombre,vfec_pago)
             sql_insert <- sprintf ("insert into nomina_idx (anio,quincena,nombre_nomina) values (%s,'%s','%s')",ianio,iquincena,inombre)
+            
             escribir_log(file_conn,paste("Query para insert ",sql_insert))
    
 		      dbExecute(con_bd, sql_insert) 
@@ -266,7 +283,7 @@ crear_nomina_idx <- function(ianio,iquincena,inombre,con_bd)
 
 }
 
-crear_idx_edocta <- function(anio,quincena,tipo_carga,vuser,varchivo1,con_bd,con_error)
+crear_idx_edocta <- function(anio,quincena,tipo_carga,vuser,varchivo1,con_bd,verror)
 {
    tryCatch({
       codigoerror = 0
@@ -278,19 +295,20 @@ crear_idx_edocta <- function(anio,quincena,tipo_carga,vuser,varchivo1,con_bd,con
       #con_bd = abrir_BD ()
       
       if (dbIsValid(con_bd)){
-         if (con_error == TRUE) {
-            sql_insert <- paste ("insert into edocta_idx (anio,quincena,tipo_carga,reg_cancelado,user_caga,nombre_archivo,fecha_carga) ",
-                              "values (%s,'%s','%s',TRUE,'%s','%s',CURRENT_TIMESTAMP)")
+         if (verror != 0) {
+            sql_insert <- paste ("insert into edocta_idx (anio,quincena,tipo_carga,reg_cancelado,user_carga,nombre_archivo,fecha_carga,codigoerror) ",
+                              "values (%s,'%s','%s',TRUE,'%s','%s',CURRENT_TIMESTAMP,%s)")
          } else {
-            sql_insert <- paste ("insert into edocta_idx (anio,quincena,tipo_carga,carga_completa,user_caga,nombre_archivo,fecha_carga) ",
-                              "values (%s,'%s','%s',TRUE,'%s','%s',CURRENT_TIMESTAMP)")
+            sql_insert <- paste ("insert into edocta_idx (anio,quincena,tipo_carga,carga_completa,user_carga,nombre_archivo,fecha_carga,codigoerror) ",
+                              "values (%s,'%s','%s',TRUE,'%s','%s',CURRENT_TIMESTAMP,%s)")
          }
-         sql_insert <- sprintf (sql_insert,anio,quincena,tipo_carga,vuser,varchivo1)
+         sql_insert <- sprintf (sql_insert,anio,quincena,tipo_carga,vuser,varchivo1,verror)
          
          escribir_log(file_conn,paste("Query para insert edocta o dispersion ",sql_insert))
 	      dbExecute(con_bd, sql_insert) 
       } else {
          codigoerror = 715
+         escribir_log(file_conn,paste("Hubo un error de conexion a BD al crear registro de carga de edocta",codigoerror))
 	      val_return = -1
       } 
 

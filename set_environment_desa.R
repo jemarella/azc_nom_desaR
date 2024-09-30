@@ -4,12 +4,18 @@ library(dplyr)
 library(ini)
 library(readxl)
 library(lubridate)
+library(stringr)
+library(readr)
+source("./control_log.R")
+source("./main_edocta.R")
+
 
 setwd ('D:/Program Files/R/R-4.4.1/codigo/azc_nom_desaR')
 
 # datos prueba 
 ianio = 2024
-iquincena = '07'
+imes = '01'
+iquincena = '01'
 itipo = 'Honorarios'
 iarchivo1 = '52'
 iarchivo2 = '52-azcapotzalco'

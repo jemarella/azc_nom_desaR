@@ -77,7 +77,7 @@ if (ctrl_idx != -1 ) {  # se creo registro y ya se tiene un indice control ctrl_
 } 
 
 if (result_carga == 0) {
-   result_ok = update_nomina_idx_ok (con_bd,ctrl_idx)    
+   result_ok = update_nomina_idx_ok (con_bd,ctrl_idx,tipo)    
    codigoerror = result_ok$codigoerror
 } else {
    codigoerror = result_carga

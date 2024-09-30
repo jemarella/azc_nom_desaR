@@ -14,9 +14,9 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
    
   
    tryCatch({
-                           codigoerror = 0
+                           codigoerror <- 0
 
-     file_conn = abrir_log()
+     file_conn <- abrir_log()
      escribir_log(file_conn,"Inicio Carga Honorarios....")
      
       checkini <- list()
@@ -74,15 +74,41 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
 
       # Verificar si el archivo existe
       if (!file.exists(file_path)) {
-         codigoerror = 701
+         codigoerror <- 701
          stop(paste("Error: El archivo no existe en la ruta especificada:", file_path))
       }
 
-	  Ex_hoja1 = checkini$Honorarios$Hoja1
-	  Ex_hoja2 = checkini$Honorarios$Hoja2
-	  SkipLine = as.integer(checkini$Honorarios$SkipLine)
+	  Ex_hoja1 <- checkini$Honorarios$Hoja1
+	  Ex_hoja2 <- checkini$Honorarios$Hoja2
+	  SkipLine <- as.integer(checkini$Honorarios$SkipLine)
 	
       # Leer la hoja 'POSTNOMINA' del archivo Excel, omitiendo las primeras 9 filas
+      data <- read_excel(file_path, sheet = Ex_hoja1, skip = SkipLine)
+      data_2 <- read_excel(file_path, sheet = Ex_hoja2, skip = SkipLine)
+
+
+      if (ncol(data) != 20) {
+	      escribir_log (file_conn,paste ("Se esperaban 20 columnas pero hay ", ncol(data), "se intentara leer de todos modos", sep = " "))
+	   }
+
+      if (ncol(data_2) != 17) {
+	      escribir_log (file_conn,paste ("Se esperaban 17 columnas pero hay ", ncol(data_2), "se intentara leer de todos modos", sep = " "))
+	   }
+
+      #Las siguientes lineas son para dejar una opción de leer el archivo aunque el número de columnas cambie. Por ahora no se ocuparan
+      #vncol = ncol(data)
+	   #vcol_types <- rep("text", vncol)
+	   #vcol_types[3] <- "numeric"  #Esperamos columna Identificador
+	   #vcol_types[7] <- "date"   
+
+      #vncol2 = ncol(data_2)
+	   #vcol2_types <- rep("text", vncol2)
+	   #vcol2_types[3] <- "numeric"  #Esperamos columna Identificador
+	   #vcol2_types[9] <- "date"   
+      
+      #data <- read_excel(file_path, sheet = Ex_hoja1, skip = SkipLine,col_types = c(vcol_types ))
+      #data_2 <- read_excel(file_path, sheet = Ex_hoja2, skip = SkipLine,col_types = c(vcol2_types ))
+
       data <- read_excel(file_path, sheet = Ex_hoja1, skip = SkipLine)
       data_2 <- read_excel(file_path, sheet = Ex_hoja2, skip = SkipLine)
 
@@ -137,6 +163,7 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
 	  "	
 	  colnames(data_2) <- c("ua2","subprograma2","id","nom_emp2","rfc","curp","folio2","puesto2","fec_pago2","percepciones","deducciones","liquido","NC2","banco2","agencia2","c_dispersora2","c_emisora2")
 
+	vncol = ncol(data)
 
         data$fec_pago <- as.Date(data$fec_pago,format = "%d-%m-%Y")
 
@@ -150,29 +177,29 @@ carga_honorarios <- function (ianio,iquincena,itipo,iarchivo,con,v_ctrl_idx)
                               nombre_puesto = character(),
 				              folio = numeric(),
                               fecha_pago = Date(),
-                              concepto_1_id = character(),
+                              concepto_1_id = integer(),
                               valor_concepto_1 = numeric(),
-				              concepto_2_id = character(),
+				              concepto_2_id = integer(),
 				              valor_concepto_2 = numeric(),
 				              desc_concepto1 = character(),
 				              desc_concepto2 = character(),
 							  percepciones = numeric(),
 							  deducciones = numeric(),
-							  liquido = numeric()		
+							  liquido = numeric()
 					)
 
 
-      data <- data[ !is.na(data$id), ]
-      data_2 <- data_2[ !is.na(data_2$id), ]
+      data <- data[!is.na(data$id), ]
+      data_2 <- data_2[!is.na(data_2$id), ]
 
       if (nrow(data) != nrow(data_2)) {
-         codigoerror = 714
+         codigoerror <- 714
          stop ("Las filas en hoja1 y hoja2 del excel no coinciden, abortar proceso") 
       }
 
       escribir_log(file_conn,paste("antes del merge:"))
 
-      df_merge = merge(data, data_2, by = "id")	
+      df_merge <- merge(data, data_2, by = "id")	
       escribir_log(file_conn,paste("despues del merge"))
 
       for (ii in 1:nrow(df_merge)) 

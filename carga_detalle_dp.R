@@ -1,72 +1,70 @@
-
-carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
-{
-   file_conn = abrir_log()
-   escribir_log(file_conn,"Inicio Carga Percepciones y Deducciones....")
-   
-   tryCatch({
-    
-            codigoerror = 0
-
-      checkini <- list()
+carga_detalles_nom <- function(ianio, iquincena, itipo, iarchivo2, con, v_ctrl_idx) {
+  file_conn <- abrir_log()
+  escribir_log(file_conn, "Inicio Carga Percepciones y Deducciones....")
+  
+  tryCatch({
+  
+		codigoerror <- 0
+		
+	  checkini <- list()
       iniFile <- "./cfg_creacheq.ini"
       checkini <- read.ini(iniFile)
-
-      if(!dbIsValid(con)) {
-
-      # Conectar a la base de datos
+    
+    # Conectar a la base de datos si no es válida
+    if (!dbIsValid(con)) {
       if (length(checkini) > 0) {
-         con <- dbConnect(RPostgres::Postgres(),
-                       dbname = checkini$Database$dbname,
-                       host = checkini$Database$host,
-                       port = checkini$Database$port,
-                       user = checkini$Database$user,
-                       password = checkini$Database$password)
-      }	else {
-         con <- dbConnect(RPostgres::Postgres(),
-                      dbname = "SistemaNomina",
-                      host = "192.168.100.215",
-                      port = 5432,
-                      user = "postgres",
-                      password = "Pjmx3840")
+        con <- dbConnect(
+          RPostgres::Postgres(),
+          dbname = checkini$Database$dbname,
+          host = checkini$Database$host,
+          port = checkini$Database$port,
+          user = checkini$Database$user,
+          password = checkini$Database$password)
+      } else {
+        con <- dbConnect(
+          RPostgres::Postgres(),
+          dbname = "SistemaNomina",
+          host = "192.168.100.215",
+          port = 5432,
+          user = "postgres",
+          password = "Pjmx3840")
       }
-      }
-
-      ## ambiente desarrollo fidel root_dir <- "C:/Users/PJMX/Desktop/Raiz/"
+    }
+     ## ambiente desarrollo fidel root_dir <- "C:/Users/PJMX/Desktop/Raiz/"
       ## ambiente desarrollo fidel file_path <- paste0(root_dir, "Compuesta/202405_52-azcapotzalco.xlsx")
       # Imprimir la ruta del archivo para verificar
-   
-      root_dir <- checkini$Directory$droot
-      file_path <- paste0(root_dir, "nomina ", itipo, "/Respaldos/", ianio, "/", iquincena, "_", iarchivo2, ".xlsx")
-
-      escribir_log(file_conn,paste("Verificando la ruta del archivo:", file_path))
-
-      # Verificar si el archivo existe
-      if (!file.exists(file_path)) {
-                  codigoerror = 701
-
-         stop(paste("Error: El archivo no existe en la ruta especificada:", file_path))
-      }
-      data <- read_excel(file_path)
-  
-      # Convertir nombres de columnas a minúsculas
-      colnames(data) <- tolower(colnames(data))
-
-      # Verificar los primeros registros del archivo Excel
-      escribir_log(file_conn,"Datos del archivo Excel:")
-      escribir_log(file_conn,head(data))
-
-      # Convertir ID_EMPLEADO a integer en el archivo Excel
-      data$id_empleado <- as.integer(data$id_empleado)
-
-      # Convertir las columnas de fechas a formato Date y luego a character en formato ISO
-      data$fec_inicio_p <- as.character(as.Date(data$fec_inicio_p, format = "%d/%m/%Y"))
-      data$fec_fin_p <- as.character(as.Date(data$fec_fin_p, format = "%d/%m/%Y"))
-      data$fec_imputacion <- as.character(as.Date(data$fec_imputacion, format = "%d/%m/%Y"))
-
-	  # Obtener KEY_ctr de la tabla nomina_ctrl 
-     
-      #key_quincena_query <- 
+	  
+    # Construir ruta del archivo
+    root_dir <- checkini$Directory$droot
+    file_path <- paste0(root_dir, "nomina ", itipo, "/Respaldos/", ianio, "/", iquincena, "_", iarchivo2, ".xlsx")
+    
+    escribir_log(file_conn,paste("Verificando la ruta del archivo:", file_path))
+    
+    # Verificar existencia del archivo
+    if (!file.exists(file_path)) {
+      codigoerror = 701
+      stop(paste("Error: El archivo no existe en la ruta especificada:", file_path))
+    }
+    
+    data <- read_excel(file_path)
+    
+    # Convertir nombres de columnas a minúsculas
+    colnames(data) <- tolower(colnames(data))
+    
+    # Verificar los primeros registros del archivo Excel
+    escribir_log(file_conn,"Datos del archivo Excel:")
+    escribir_log(file_conn,head(data))
+    
+    # Convertir ID_EMPLEADO a integer
+    data$id_empleado <- as.integer(data$id_empleado)
+    
+    # Convertir fechas a formato Date y luego a character en formato ISO
+    data$fec_inicio_p <- as.character(as.Date(data$fec_inicio_p, format = "%d/%m/%Y"))
+    data$fec_fin_p <- as.character(as.Date(data$fec_fin_p, format = "%d/%m/%Y"))
+    data$fec_imputacion <- as.character(as.Date(data$fec_imputacion, format = "%d/%m/%Y"))
+    
+    # Obtener KEY_QUINCENA de la tabla EMPLEADOS_TOTALES
+	  #key_quincena_query <- 
 		#sprintf (checkini$Queries$ctrl_nom_pendiente,ianio,iquincena,itipo)
       #key_quincena_data <- dbGetQuery(con, key_quincena_query)
 	 
@@ -76,137 +74,121 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
  	  #} else {
 	  #   stop ("No hay registro en nomina control")
 	  #}
-	   
+    ictrl_idx = v_ctrl_idx
+    escribir_log (file_conn,paste("Valor idx ",ictrl_idx))
+          # Obtener KEY_QUINCENA de la tabla EMPLEADOS_TOTALES
+    key_quincena_query <- sprintf('SELECT id_empleado, key_quincena FROM empleados_totales WHERE ctrl_idx = %s',ictrl_idx)
+    key_quincena_data <- dbGetQuery(con, key_quincena_query)
+    
+    if (nrow(key_quincena_data) == 0) {
+      codigoerror = 707
+      stop("No hay registros de donde obtener la Key de nomina")
+    }
+          # Verificar los datos obtenidos de EMPLEADOS_TOTALES
+    escribir_log(file_conn, "Datos de la tabla EMPLEADOS_TOTALES:")
+    escribir_log(file_conn,head(key_quincena_data))
+    
+    # Obtener los id_concepto válidos de la tabla CAT_CONCEPTOS
+    valid_concepts_query <- 'SELECT id_concepto FROM public.cat_conceptos;'
+    valid_concepts <- dbGetQuery(con, valid_concepts_query)$id_concepto
+    
+    # Obtener conceptos desde el archivo Excel
+    percepciones_conceptos <- data %>%
+      filter(!is.na(id_concepto)) %>%
+      select(id_concepto, nombre_concepto) %>%
+      distinct() %>%
+      filter(!is.na(nombre_concepto) & nombre_concepto != "")
+    
+    deducciones_conceptos <- data %>%
+      filter(!is.na(id_concepto1)) %>%
+      select(id_concepto1, nombre_concepto1) %>%
+      distinct() %>%
+      filter(!is.na(nombre_concepto1) & nombre_concepto1 != "")
+    
+    # Unir y filtrar conceptos nuevos
+    nuevos_conceptos <- bind_rows(
+      percepciones_conceptos %>% rename(id_concepto = id_concepto, nombre_concepto = nombre_concepto),
+      deducciones_conceptos %>% rename(id_concepto = id_concepto1, nombre_concepto = nombre_concepto1)
+    ) %>%
+    filter(!id_concepto %in% valid_concepts) %>%
+    distinct()
+    
+    # Insertar nuevos conceptos en la tabla cat_conceptos
+    if (nrow(nuevos_conceptos) > 0) {
+      escribir_log(file_conn, "Insertando nuevos conceptos en la tabla cat_conceptos:")
+      escribir_log(file_conn, nuevos_conceptos)
       
-      ictrl_idx = v_ctrl_idx
-      escribir_log (file_conn,paste("Valor idx ",ictrl_idx))
-
-      # Obtener KEY_QUINCENA de la tabla EMPLEADOS_TOTALES
-      key_quincena_query <- 
-	     sprintf ('SELECT id_empleado, key_quincena FROM empleados_totales where ctrl_idx = %s ',ictrl_idx) 
-      key_quincena_data <- dbGetQuery(con, key_quincena_query)
-
-	  if (nrow (key_quincena_data) == 0) {
-               codigoerror = 707
-
-	     stop ("No hay registros de donde obtener la Key de nomina")
-	  }
-	  
-      # Verificar los datos obtenidos de EMPLEADOS_TOTALES
-      escribir_log(file_conn,"Datos de la tabla EMPLEADOS_TOTALES:")
-      escribir_log(file_conn,head(key_quincena_data))
-
-      # Obtener los id_concepto válidos de la tabla CAT_CONCEPTOS
-      valid_concepts_query <- 'SELECT id_concepto FROM public.cat_conceptos;'
-      valid_concepts <- dbGetQuery(con, valid_concepts_query)$id_concepto
-
-      
-      # Unir los datos del archivo Excel con los de la tabla EMPLEADOS_TOTALES
-      merged_data <- data %>%
-         left_join(key_quincena_data, by = "id_empleado")
-
-      # Filtrar filas que tienen valores nulos en columnas permitiendo nulos
-      filtered_data <- merged_data %>%
-        filter(!is.na(id_concepto) | is.na(id_concepto)) %>%
-        filter(!is.na(id_tipo_prestamo) | is.na(id_tipo_prestamo)) %>%
-        filter(!is.na(id_subtipo_prestamo) | is.na(id_subtipo_prestamo)) %>%
-        filter(!is.na(valor) | is.na(valor))
-
-      # Verificar si hay id_concepto no válidos, excluyendo NA
-      invalid_concepts <- filtered_data %>%
-      filter(!is.na(id_concepto) & !id_concepto %in% valid_concepts) %>%
-      select(id_concepto) %>%
-      distinct()
-
-      if (nrow(invalid_concepts) > 0) {
-         escribir_log(file_conn,"Alerta: Los siguientes id_concepto no están registrados en la base de datos:")
-         escribir_log(file_conn,invalid_concepts)
-                        codigoerror = 708
-
-         stop ("Error en conceptos percepciones")
-      # Aquí puedes agregar código para mostrar una alerta al usuario en el front-end.
-      } else {
-         # Filtrar y seleccionar las columnas necesarias para percepciones_empleado
-         percepciones_empleado <- filtered_data %>%
-         select(
-            key_quincena, 
-            id_empleado,
-            id_concepto,
-            no_linea,
-            valor,
-            fec_inicio_p,
-            fec_fin_p, 
-            fec_imputacion
-            )
-
-         if (itipo == "Extraordinarios") {
-            v_nom_concepts_query <- sprintf('SELECT nombre_concepto FROM public.cat_conceptos where id_concepto = %s',percepciones_empleado$id_concepto[1])
-            v_nom_concepts <- dbGetQuery(con, v_nom_concepts_query)$nombre_concepto[1]
-
-            #Tomar nombre de concepto para actualizar cuando son nominas extraordinarias
-            #Escribir descripción de extraordinaria 
-            sql_descrip = checkini$Queries$update_desc_extaor
-            sql_descrip = sprintf(sql_descrip,v_nom_concepts,v_ctrl_idx)
-
-            escribir_log(file_conn, paste ("Actualizar descripcion extraordinaria de acuerdo a conceptos ", sql_descrip))
-            dbExecute(con, sql_descrip)
-         }
-
-         # Verificar los datos finales que se van a insertar en percepciones_empleado
-         escribir_log(file_conn,"Datos finales a insertar en percepciones_empleado:")
-         escribir_log(file_conn,head(percepciones_empleado))
-         ## ambiente desarrollo fidel summary(percepciones_empleado)
-  
-         # Insertar los datos en la tabla PERCEPCIONES_EMPLEADO permitiendo duplicados
-         dbWriteTable(con, "percepciones_empleado", percepciones_empleado, append = TRUE, row.names = FALSE)
-
+      for (i in 1:nrow(nuevos_conceptos)) {
+        insert_query <- sprintf(
+          "INSERT INTO public.cat_conceptos (id_concepto, nombre_concepto) VALUES (%s, '%s') ON CONFLICT (id_concepto) DO NOTHING;",
+          nuevos_conceptos$id_concepto[i], nuevos_conceptos$nombre_concepto[i]
+        )
+        dbExecute(con, insert_query)
       }
-
-      # Filtrar y seleccionar las columnas necesarias para deducciones_empleado
-      deducciones_empleado <- merged_data %>%
+    } else {
+      escribir_log(file_conn, "No hay conceptos nuevos para insertar.")
+    }
+    
+    # Unir datos del archivo Excel con EMPLEADOS_TOTALES
+    merged_data <- data %>%
+      left_join(key_quincena_data, by = "id_empleado")
+    
+    # Procesar Percepciones
+    percepciones_empleado <- merged_data %>%
       select(
-          key_quincena,
-          id_empleado,
-          no_linea,
-          id_concepto1,
-          id_tipo_prestamo,
-          id_subtipo_prestamo,
-          valor1,
-          fec_inicio_p,
-          fec_fin_p,
-          fec_imputacion
+        key_quincena, 
+        id_empleado,
+        id_concepto,
+        no_linea,
+        valor,
+        fec_inicio_p,
+        fec_fin_p, 
+        fec_imputacion
       )
-
-      # Verificar si hay id_concepto1 no válidos, excluyendo NA
-      invalid_concepts <- deducciones_empleado %>%
-      filter(!is.na(id_concepto1) & !id_concepto1 %in% valid_concepts) %>%
-      select(id_concepto1) %>%
-      distinct()
-
-      if (nrow(invalid_concepts) > 0) {
-         escribir_log(file_conn,"Alerta: Los siguientes id_concepto1 no están registrados en la base de datos:")
-         escribir_log(file_conn,invalid_concepts)
-                                 codigoerror = 709
-
-         stop ("Error en conceptos deducciones")
-      # Aquí puedes agregar código para mostrar una alerta al usuario en el front-end.
-      } else {
-         # Verificar los datos finales que se van a insertar en deducciones_empleado
-         escribir_log(file_conn,"Datos finales a insertar en deducciones_empleado:")
-         escribir_log(file_conn,head(deducciones_empleado))
-         ## ambiente desarrollo fidel summary(deducciones_empleado)
-  
-         # Insertar los datos en la tabla DEDUCCIONES_EMPLEADO permitiendo duplicados y nulos
-         dbWriteTable(con, "deducciones_empleado", deducciones_empleado, append = TRUE, row.names = FALSE, overwrite = FALSE)
-      }
-
-      # Cerrar la conexión a la base de datos
+    
+    escribir_log(file_conn, "Datos finales a insertar en percepciones_empleado:")
+    escribir_log(file_conn, head(percepciones_empleado))
+    dbWriteTable(con, "percepciones_empleado", percepciones_empleado, append = TRUE, row.names = FALSE)
+    
+    # Procesar Deducciones
+    deducciones_empleado <- merged_data %>%
+      select(
+        key_quincena,
+        id_empleado,
+        no_linea,
+        id_concepto1,
+        id_tipo_prestamo,
+        id_subtipo_prestamo,
+        valor1,
+        fec_inicio_p,
+        fec_fin_p,
+        fec_imputacion
+      )
+    
+    escribir_log(file_conn, "Datos finales a insertar en deducciones_empleado:")
+    escribir_log(file_conn, head(deducciones_empleado))
+    dbWriteTable(con, "deducciones_empleado", deducciones_empleado, append = TRUE, row.names = FALSE)
+    
+    # Agregar fragmento adicional para nóminas extraordinarias
+    if (itipo == "Extraordinarios") {
+      v_nom_concepts_query <- sprintf('SELECT nombre_concepto FROM public.cat_conceptos WHERE id_concepto = %s',percepciones_empleado$id_concepto[1])
+      v_nom_concepts <- dbGetQuery(con, v_nom_concepts_query)$nombre_concepto[1]
+      
+      # Tomar nombre de concepto para actualizar cuando son nóminas extraordinarias
+      sql_descrip <- checkini$Queries$update_desc_extaor
+      sql_descrip <- sprintf(sql_descrip, v_nom_concepts,v_ctrl_idx)
+      
+      escribir_log(file_conn, paste("Actualizar descripción extraordinaria de acuerdo a conceptos:", sql_descrip))
+      dbExecute(con, sql_descrip)
+    }
+    # Cerrar la conexión a la base de datos
       #dbDisconnect(con)
 	  cerrar_log (file_conn) 
     
       #return ('0')
       return (codigoerror) #agregado 20-08-2024
-  }, error = function(e) {
+	
+  },error = function(e) {
     mensaje_error <- paste(Sys.time(), ": ", e$message, sep = "")
 	escribir_log (file_conn,mensaje_error)	
     cerrar_log (file_conn)
@@ -216,5 +198,4 @@ carga_detalles_nom <- function (ianio,iquincena,itipo,iarchivo2,con,v_ctrl_idx)
              }
     return (codigoerror)#agregado 20-08-2024
   })
-  
 }

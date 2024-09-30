@@ -30,7 +30,8 @@ carga_dispersion <- function (ianio,iquincena,tipo_carga,iarchivo1,con)
 	   # Leer el archivo Excel
 
       root_dir <- checkini$Directory$drootedo
-      file1 <- paste0(root_dir, "/Dispersion/", iarchivo1 )
+      file1 <- paste0(root_dir, "Dispersion/", iarchivo1 )
+
       #file1 = "./excel_disper/ARCHIVO DISPER 1A ENE 24.xls"
 
       # Verificar si el archivo existe
@@ -44,9 +45,36 @@ carga_dispersion <- function (ianio,iquincena,tipo_carga,iarchivo1,con)
 
       query <- checkini$Queries$carga_emp_min
       escribir_log (file_conn, paste ("Se leen registros de empleado", query , sep = " "))
+       ###checkini$Queries$carga_emp # Reemplaza con tu consulta
+      df_emp <- dbGetQuery(con, query)
+
+      query_emp_tot <- paste (checkini$Queries$carga_emp_tot.1,
+                              checkini$Queries$carga_emp_tot.2,
+                              checkini$Queries$carga_emp_tot.3)
+      query_emp_tot <- sprintf (query_emp_tot,ianio,iquincena)
+      escribir_log (file_conn, paste ("Se leen registros de empleados totales", query_emp_tot , sep = " "))
 
       ###checkini$Queries$carga_emp # Reemplaza con tu consulta
-      df_emp <- dbGetQuery(con, query)
+      df_emp_total <- dbGetQuery(con, query_emp_tot)
+
+      if (nrow(df_emp_total) <= 0) {
+         codigoerror = 726
+         stop ("No existen registros de carga de nomina para la quincena que ha seleccionado")
+      }
+
+      str_qry = paste ("select aa.id_empleado from edocta_idx as zz " ,
+                       "join dispersion as aa on aa.anio = zz.anio and aa.quincena = zz.quincena " ,
+                       "where zz.anio = %s and zz.quincena = '%s' and zz.reg_cancelado = FALSE and ",
+                       "zz.carga_completa = TRUE and zz.tipo_carga = 'Dispersion' limit 1 ")
+      str_qry = sprintf (str_qry,ianio,iquincena)
+      escribir_log (file_conn, paste ("Se leen registros buscando dispersiones de la quincena", str_qry , sep = " "))
+      
+      df_val_disp <- dbGetQuery(con, str_qry)
+
+      if (nrow(df_val_disp) > 0) {
+         codigoerror = 727
+         stop ("Ya existen registros de dispersion para la quincena que ha seleccionado, no puede continuar")
+      }
 
 
       if (ncol(df_disper) == 5 ) {  #Algunos archivos vienen con 5 columnas y otros con 6.
@@ -58,6 +86,7 @@ carga_dispersion <- function (ianio,iquincena,tipo_carga,iarchivo1,con)
             df_disper <- df_disper %>% select (-id_emp)  # eliminamos la columna extra que viene en ocasiones en archivos excel
          } else {
             codigoerror = 718 
+            stop ("El numero de columnas en archivo dispersion no es 5 ni 6, no se puede procesar")
          }
       }
 
@@ -84,13 +113,12 @@ carga_dispersion <- function (ianio,iquincena,tipo_carga,iarchivo1,con)
       if (nrow(df_merge) > nrow(df_emp)) {
          escribir_log (file_conn, "El numero de empleados con num cuenta no deberia ser mayor que el numero total de empleado")
          codigoerror = 717
-         stop ("Archivo contiene mas registros que empleados")
+         stop ("Archivo dispersion contiene mas registros que empleados")
       }
 
       # arma una tabla con el numero de veces que se repite la descripcion
       #conteo_descs <- df_disper %>% count(descripcion)
       #print (conteo_descs)
-
             
       itotal_empleados = nrow(df_merge) 
       itotal_monto = sum(df_merge$monto)
@@ -101,12 +129,26 @@ carga_dispersion <- function (ianio,iquincena,tipo_carga,iarchivo1,con)
       qry_find_previous <- paste ("select from ctrl_dispersion where total_empleados = %s and ",
                                   "total_monto = %s and total_no_emp = %s and monto_no_emp = %s ")
       qry_find_previous <- sprintf (qry_find_previous,itotal_empleados,itotal_monto,itotal_no_emp,imonto_no_emp)
+      escribir_log (file_conn, paste("Se revisa que exista registro con mismos datos: " ,qry_find_previous))
+
       res_find = dbGetQuery(con, qry_find_previous)
 
       if (nrow (res_find) > 0) {
          codigoerror = 720
          stop ("Archivo ctrl dispersion ya existe con mismos datos, no puede cargar dispersion nuevamente")
       }  
+
+      s_qry = paste ("select aa.*, zz.quincena from nomina_idx as zz ", 
+                     "join honorarios as aa on aa.ctrl_idx = zz.ctrl_idx ",
+                     "where zz.anio = %s and zz.quincena = '%s' ",
+                     "and zz.reg_cancelado = FALSE and zz.carga_completa = TRUE ")
+      s_qry = sprintf (s_qry,ianio,imes)
+      df_honor <- dbGetQuery(con, s_qry)  
+      
+      if (nrow(df_honor) > 0) { 
+	      df_honor <- df_honor %>%
+  		      mutate(id_empleado = as.integer (identificador))  #convertimos identificador en id_empleado
+      }
 
       dbBegin (con)
          flag_commit = TRUE
@@ -121,6 +163,8 @@ carga_dispersion <- function (ianio,iquincena,tipo_carga,iarchivo1,con)
 
          escribir_log (file_conn, paste("Se inserta registro control con sentencia: " ,set_insert))
          do_insert <- dbExecute(con, set_insert) 
+     dbCommit (con) 
+     flag_commit = FALSE
 
          result <- dbGetQuery(con, "select ctrl_id from ctrl_dispersion order by ctrl_id DESC LIMIT 1")
       
@@ -138,11 +182,46 @@ carga_dispersion <- function (ianio,iquincena,tipo_carga,iarchivo1,con)
          df_merge <- df_merge %>% mutate(quincena = iquincena)
          df_no_emps <- df_no_emps %>% mutate(quincena = iquincena)
 
+     dbBegin (con)
+         flag_commit = TRUE
 
          escribir_log (file_conn, paste("Se actualizaran " , nrow(df_merge), " registros"))
 
          dbWriteTable(con, "dispersion", df_merge, append = TRUE, row.names = FALSE)  #todos los registros con empleado valido
          dbWriteTable(con, "dispersion", df_no_emps, append = TRUE, row.names = FALSE) #todos los regisotrs no validos.
+
+         df_up_empleados <- select (df_emp_total,ctrl_idx,id_empleado)
+         df_up_empleados <- inner_join(df_up_empleados,df_merge, by = "id_empleado")  #selecionamos los empleados referentes a la nomina
+
+         df_up_honor <- select (df_honor,ctrl_idx,id_empleado)
+         df_up_honor <- inner_join(df_up_honor,df_merge, by = "id_empleado")  #a los que se paga por honorarios los buscamos dentro del excel leido
+         
+         escribir_log (file_conn, paste("Total de registros a actualizar : " , nrow(df_up_empleados), 
+                                    " Emp total: ", nrow(df_emp_total), "Merge:" , nrow(df_merge) ))
+
+         if (nrow(df_up_empleados) > 0) {
+            for (ii in 1:nrow(df_up_empleados)) {               
+   	         str_update <- 
+               sprintf("UPDATE empleados_totales SET pago_trf = TRUE, referencia = '%s' where ctrl_idx = %s and id_empleado = %s", df_up_empleados$num_cuenta[ii],df_up_empleados$ctrl_idx[ii],df_up_empleados$id_empleado[ii])
+            
+               if (ii == 1) {
+                  escribir_log (file_conn, paste("update query para sql ", str_update , sep = " "))
+               }            
+               dbExecute(con, str_update)
+            }
+	      }
+
+         if (nrow(df_up_honor) > 0) { #Actualizamos a quienes se les pago por transferencia
+            for (ii in 1:nrow(df_up_honor)) {               
+   	         str_update <- 
+               sprintf("UPDATE honorarios SET pago_trf = TRUE, referencia = '%s' where ctrl_idx = %s and identificador = '%s'", df_up_honor$num_cuenta[ii],df_up_honor$ctrl_idx[ii],df_up_honor$id_empleado[ii])
+            
+               if (ii == 1) {
+                  escribir_log (file_conn, paste("update query para sql ", str_update , sep = " "))
+               }            
+               dbExecute(con, str_update)
+            }
+	      }
 
       dbCommit (con) 
 	   
@@ -151,9 +230,9 @@ carga_dispersion <- function (ianio,iquincena,tipo_carga,iarchivo1,con)
       escribir_log (file_conn,paste ("Proceso carga dispersion finalizado...", sep = " "))
 	   cerrar_log (file_conn) 
 
-      if (dbIsValid (con)) {   #Cerramos base de datos
-         dbDisconnect (con)
-      }
+      #if (dbIsValid (con)) {   #dejamos conexion abierta y el modulo principal la cierra
+      #   dbDisconnect (con)
+      #}
       return (codigoerror)   
 
    }, error = function(e) {
@@ -166,7 +245,7 @@ carga_dispersion <- function (ianio,iquincena,tipo_carga,iarchivo1,con)
                   if (flag_commit == TRUE) {
                      dbRollback (con)  # en caso de error deshacemos la transaccion 
                   }
-                  dbDisconnect (con)
+                  #dbDisconnect (con) #dejamos conexion abierta y el modulo principal la cierra
                }
 
                if (codigoerror == 0) {

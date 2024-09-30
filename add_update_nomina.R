@@ -128,9 +128,19 @@ if (tipo_nomina == "Finiquitos") {
 
       escribir_log (file_conn, paste("Registros finiquito ", data_finiquito , sep = " "))
  
+      str_qry = "select fecha_fin from cat_quincena where anio = %s and quincena = '%s'"
+      str_qry = sprintf (str_qry,ianio,iquincena)
+      df_catq <- dbGetQuery(con, str_qry);
+
+      if (nrow(df_catq) > 0 ) {
+         vfecha_baja <- df_catq$fecha_fin[1]
+      } else {
+         vfecha_baja <- today()
+      }
+
       #Aqui se desacivan y no en el primer proces
       for (ii in 1:nrow(data_finiquito)) {               
-   	     str_update <- sprintf("UPDATE empleados SET activo = FALSE where id_empleado = %s", data_finiquito[ii, 1])
+   	   str_update <- sprintf("UPDATE empleados SET activo = FALSE, fecha_baja = '%s' where id_empleado = %s", vfecha_baja, data_finiquito[ii, 1])
 
          escribir_log (file_conn, paste("update query para sql ", str_update , sep = " "))
          dbExecute(con, str_update)

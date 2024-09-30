@@ -32,6 +32,12 @@ tryCatch (
       }
    }
 #####query <- "SELECT * FROM empleados where empleados.activo = True;"  # Reemplaza con tu consulta
+str_qry = "select fecha_fin from cat_quincena where anio = %s and quincena = '%s'"
+str_qry = sprintf (str_qry,ianio,iquincena)
+df_catq = dbGetQuery (con_bd,str_qry)
+if (nrow(df_catq) > 0) {
+   vfec_pago = df_catq$fecha_fin[1]
+}
 
 query <- checkini$Queries$carga_emp # Reemplaza con tu consulta
 emp_actual <- dbGetQuery(con, query);
@@ -190,7 +196,8 @@ if ((tipo_nomina == "Compuesta") | (tipo_nomina == "Extraordinarios")) {
 
 
    #+++++++++++ Volvemos a leer la BD después de insertar los pendientes, en esta segunda parte buscaremos diferencias en las columnas
-   query <- "SELECT * FROM empleados where empleados.activo = True"  # Reemplaza con tu consulta
+   #query <- "SELECT * FROM empleados where empleados.activo = True"  # Reemplaza con tu consulta
+   query <- checkini$Queries$carga_emp # Reemplaza con tu consulta
    emp_actual <- dbGetQuery(con, query);
    #compare_emp <- emp_actual [, required_fields]
    compare_emp <- emp_actual %>% select (any_of(c(required_fields)))
